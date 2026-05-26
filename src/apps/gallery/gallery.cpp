@@ -1,11 +1,10 @@
 /**
  * @file gallery.cpp
- * @brief Photo carousel skeleton from /photos/*.jpg on SD.
+ * @brief Photo carousel from /photos/*.jpg on SD via LVGL FS driver.
  *
- * Lists JPGs and navigates with prev/next. Actual image rendering needs an
- * LVGL FS driver wrapping the Arduino SD library — not wired yet; for now,
- * the placeholder card shows the filename + index. When the FS driver lands,
- * swap the placeholder for `lv_image_set_src(img, "S:/photos/<name>")`.
+ * Image paths are resolved as "S:/photos/<name>". LVGL FS_STDIO is configured
+ * with letter 'S' and base path "/sd" (where ESP32 Arduino mounts the card),
+ * so the open call lands at fopen("/sd/photos/<name>").
  */
 
 #include "gallery.h"
@@ -26,8 +25,10 @@ static char  s_photos[MAX_PHOTOS][MAX_NAME_LEN];
 static size_t s_photo_count = 0;
 static int    s_current_index = 0;
 
-static lv_obj_t* s_name_label = nullptr;
+static lv_obj_t* s_image = nullptr;
+static lv_obj_t* s_empty_label = nullptr;
 static lv_obj_t* s_counter_label = nullptr;
+static char  s_image_path[80];
 
 static bool ext_matches_image(const char* name) {
     size_t len = strlen(name);
@@ -65,16 +66,23 @@ static void scan_photos(void) {
 }
 
 static void refresh(void) {
-    if (!s_name_label) return;
+    if (!s_counter_label) return;
 
     if (s_photo_count == 0) {
-        lv_label_set_text(s_name_label, "(sem fotos)\nadicione JPGs em /photos/");
+        if (s_empty_label) lv_obj_remove_flag(s_empty_label, LV_OBJ_FLAG_HIDDEN);
+        if (s_image)       lv_obj_add_flag(s_image, LV_OBJ_FLAG_HIDDEN);
         lv_label_set_text(s_counter_label, "0 / 0");
         return;
     }
 
     s_current_index = ((s_current_index % (int)s_photo_count) + (int)s_photo_count) % (int)s_photo_count;
-    lv_label_set_text(s_name_label, s_photos[s_current_index]);
+
+    snprintf(s_image_path, sizeof(s_image_path), "S:/photos/%s", s_photos[s_current_index]);
+    if (s_image) {
+        lv_obj_remove_flag(s_image, LV_OBJ_FLAG_HIDDEN);
+        lv_image_set_src(s_image, s_image_path);
+    }
+    if (s_empty_label) lv_obj_add_flag(s_empty_label, LV_OBJ_FLAG_HIDDEN);
 
     char buf[16];
     snprintf(buf, sizeof(buf), "%d / %u", s_current_index + 1, (unsigned)s_photo_count);
@@ -85,7 +93,7 @@ static void prev_cb(lv_event_t* /*e*/) { s_current_index--; refresh(); }
 static void next_cb(lv_event_t* /*e*/) { s_current_index++; refresh(); }
 
 static void back_event_cb(lv_event_t* /*e*/) {
-    s_name_label = s_counter_label = nullptr;
+    s_image = s_empty_label = s_counter_label = nullptr;
     nav_pop(NAV_ANIM_SLIDE_RIGHT);
 }
 
@@ -126,38 +134,47 @@ void gallery_show(void) {
     lv_obj_set_style_text_font(title, &lv_font_montserrat_18, LV_PART_MAIN);
     lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
 
-    // Preview card (placeholder until LVGL FS driver lands)
+    // Preview container (image fills, with letterboxing for non-240x320 photos)
     lv_obj_t* preview = lv_obj_create(scr);
-    lv_obj_set_size(preview, 220, 180);
-    lv_obj_align(preview, LV_ALIGN_TOP_MID, 0, 50);
-    lv_obj_add_style(preview, &theme_style_card, LV_PART_MAIN);
+    lv_obj_set_size(preview, 240, 220);
+    lv_obj_align(preview, LV_ALIGN_TOP_MID, 0, 40);
+    lv_obj_set_style_bg_color(preview, theme_color_text_light(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(preview, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(preview, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(preview, 0, LV_PART_MAIN);
     lv_obj_clear_flag(preview, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_obj_t* placeholder_icon = lv_label_create(preview);
-    lv_label_set_text(placeholder_icon, LV_SYMBOL_IMAGE);
-    lv_obj_set_style_text_color(placeholder_icon, theme_color_text_light(), LV_PART_MAIN);
-    lv_obj_set_style_text_font(placeholder_icon, &lv_font_montserrat_24, LV_PART_MAIN);
-    lv_obj_align(placeholder_icon, LV_ALIGN_CENTER, 0, -20);
+    s_image = lv_image_create(preview);
+    lv_obj_set_size(s_image, 240, 220);
+    lv_image_set_inner_align(s_image, LV_IMAGE_ALIGN_CONTAIN);
+    lv_obj_center(s_image);
 
-    s_name_label = lv_label_create(preview);
-    lv_label_set_long_mode(s_name_label, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(s_name_label, 200);
-    lv_obj_set_style_text_align(s_name_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    lv_obj_set_style_text_color(s_name_label, theme_color_text(), LV_PART_MAIN);
-    lv_obj_set_style_text_font(s_name_label, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_align(s_name_label, LV_ALIGN_CENTER, 0, 30);
+    s_empty_label = lv_label_create(preview);
+    lv_label_set_long_mode(s_empty_label, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(s_empty_label, 200);
+    lv_obj_set_style_text_align(s_empty_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_color(s_empty_label, theme_color_text(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(s_empty_label, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_label_set_text(s_empty_label, "sem fotos\n(adicione JPGs em /photos/ no SD)");
+    lv_obj_center(s_empty_label);
+    lv_obj_add_flag(s_empty_label, LV_OBJ_FLAG_HIDDEN);
 
     // Counter
     s_counter_label = lv_label_create(scr);
-    lv_obj_set_style_text_color(s_counter_label, theme_color_text(), LV_PART_MAIN);
+    lv_obj_set_style_text_color(s_counter_label, theme_color_card(), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_counter_label, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_align(s_counter_label, LV_ALIGN_TOP_MID, 0, 238);
+    lv_obj_set_style_bg_color(s_counter_label, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(s_counter_label, LV_OPA_80, LV_PART_MAIN);
+    lv_obj_set_style_pad_hor(s_counter_label, 10, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(s_counter_label, 4, LV_PART_MAIN);
+    lv_obj_set_style_radius(s_counter_label, 12, LV_PART_MAIN);
+    lv_obj_align(s_counter_label, LV_ALIGN_TOP_RIGHT, -10, 50);
 
     // Prev / next buttons
     auto make_nav_btn = [&](int x, lv_event_cb_t cb, const char* sym) {
         lv_obj_t* b = lv_button_create(scr);
         lv_obj_set_size(b, 56, 44);
-        lv_obj_set_pos(b, x, 264);
+        lv_obj_set_pos(b, x, 268);
         lv_obj_set_style_bg_color(b, theme_color_accent(), LV_PART_MAIN);
         lv_obj_set_style_radius(b, THEME_RADIUS_BUTTON, LV_PART_MAIN);
         lv_obj_set_style_shadow_width(b, 0, LV_PART_MAIN);

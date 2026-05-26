@@ -4,8 +4,8 @@
  *
  * Scope of this V1 (vs full TAMAGOTCHI_SPEC.md):
  *   - Adoption wizard: skipped, uses DEFAULT_PET_NAME from config.h
- *   - Sprite animation: placeholder (single emoji-ish label)
- *   - Background image: solid theme color
+ *   - Pet sprite: loads idle/sad/sleep PNG from SD, 12-frame loop at 200ms
+ *   - Background image: solid theme color (background sprite TBD)
  *   - Settings menu: not yet
  *
  * NVS namespace "tama":
@@ -52,9 +52,17 @@ static lv_obj_t* s_hunger_val = nullptr;
 static lv_obj_t* s_happy_val  = nullptr;
 static lv_obj_t* s_energy_val = nullptr;
 static lv_obj_t* s_clean_val  = nullptr;
-static lv_obj_t* s_pet_label  = nullptr;
+static lv_obj_t* s_pet_img    = nullptr;
 static lv_obj_t* s_status_text = nullptr;
 static lv_timer_t* s_decay_timer = nullptr;
+static lv_timer_t* s_anim_timer  = nullptr;
+static int  s_anim_frame = 0;
+static char s_sprite_path[96];
+
+static constexpr int SPRITE_FRAME_W = 32;
+static constexpr int SPRITE_FRAME_H = 32;
+static constexpr int SPRITE_FRAME_COUNT = 12;
+static constexpr const char* PET_SLUG_DEFAULT = "white";
 
 static uint8_t clamp_stat(int v) {
     if (v < 0) return 0;
@@ -126,17 +134,18 @@ static void catch_up_decay(void) {
     s_state.last_unix += hours * 3600;
 }
 
-static const char* pet_face(void) {
-    uint8_t min_stat = s_state.hunger;
-    if (s_state.happiness   < min_stat) min_stat = s_state.happiness;
-    if (s_state.energy      < min_stat) min_stat = s_state.energy;
-    if (s_state.cleanliness < min_stat) min_stat = s_state.cleanliness;
+static const char* current_animation(void) {
+    if (s_state.energy < 20) return "sleep";
+    if (s_state.hunger < 20 || s_state.happiness < 20) return "sad";
+    if (s_state.happiness >= 80 && s_state.hunger >= 80) return "happy";
+    return "idle";
+}
 
-    if (min_stat == 0)  return "X_X";
-    if (min_stat < 25)  return ":(";
-    if (min_stat < 50)  return ":|";
-    if (min_stat < 80)  return ":)";
-    return ":D";
+static const char* sprite_path_for(const char* slug, const char* anim) {
+    snprintf(s_sprite_path, sizeof(s_sprite_path),
+             "S:/tamagotchi_sprites/cacaos_pet_assets/pets/%s/%s.png",
+             slug, anim);
+    return s_sprite_path;
 }
 
 static const char* status_message(void) {
@@ -146,6 +155,14 @@ static const char* status_message(void) {
     if (s_state.cleanliness < 25) return "Caca precisa de banho...";
     if (s_state.hunger >= 80 && s_state.happiness >= 80) return "Caca ta feliz!";
     return "";
+}
+
+static void refresh_sprite_src(void) {
+    if (!s_pet_img) return;
+    sprite_path_for(PET_SLUG_DEFAULT, current_animation());
+    lv_image_set_src(s_pet_img, s_sprite_path);
+    s_anim_frame = 0;
+    lv_image_set_offset_x(s_pet_img, 0);
 }
 
 static void refresh_ui(void) {
@@ -164,8 +181,14 @@ static void refresh_ui(void) {
     set_bar(s_energy_bar, s_energy_val, s_state.energy);
     set_bar(s_clean_bar,  s_clean_val,  s_state.cleanliness);
 
-    if (s_pet_label) lv_label_set_text(s_pet_label, pet_face());
+    refresh_sprite_src();
     if (s_status_text) lv_label_set_text(s_status_text, status_message());
+}
+
+static void sprite_tick_cb(lv_timer_t* /*t*/) {
+    if (!s_pet_img) return;
+    s_anim_frame = (s_anim_frame + 1) % SPRITE_FRAME_COUNT;
+    lv_image_set_offset_x(s_pet_img, -(s_anim_frame * SPRITE_FRAME_W));
 }
 
 static void feed_cb(lv_event_t* /*e*/) {
@@ -205,13 +228,11 @@ static void decay_tick_cb(lv_timer_t* /*t*/) {
 
 static void back_event_cb(lv_event_t* /*e*/) {
     update_last_unix_and_save();
-    if (s_decay_timer) {
-        lv_timer_delete(s_decay_timer);
-        s_decay_timer = nullptr;
-    }
+    if (s_decay_timer) { lv_timer_delete(s_decay_timer); s_decay_timer = nullptr; }
+    if (s_anim_timer)  { lv_timer_delete(s_anim_timer);  s_anim_timer  = nullptr; }
     s_name_label = s_hunger_bar = s_happy_bar = s_energy_bar = s_clean_bar = nullptr;
     s_hunger_val = s_happy_val = s_energy_val = s_clean_val = nullptr;
-    s_pet_label = s_status_text = nullptr;
+    s_pet_img = s_status_text = nullptr;
     nav_pop(NAV_ANIM_SLIDE_RIGHT);
 }
 
@@ -315,10 +336,11 @@ void tamagotchi_show(void) {
     lv_obj_add_style(pet_card, &theme_style_card, LV_PART_MAIN);
     lv_obj_clear_flag(pet_card, LV_OBJ_FLAG_SCROLLABLE);
 
-    s_pet_label = lv_label_create(pet_card);
-    lv_obj_set_style_text_color(s_pet_label, theme_color_accent(), LV_PART_MAIN);
-    lv_obj_set_style_text_font(s_pet_label, &lv_font_montserrat_24, LV_PART_MAIN);
-    lv_obj_align(s_pet_label, LV_ALIGN_CENTER, 0, -10);
+    s_pet_img = lv_image_create(pet_card);
+    lv_obj_set_size(s_pet_img, SPRITE_FRAME_W, SPRITE_FRAME_H);
+    lv_image_set_scale(s_pet_img, 768);   // 3x = 96x96 visible
+    lv_image_set_inner_align(s_pet_img, LV_IMAGE_ALIGN_TOP_LEFT);
+    lv_obj_align(s_pet_img, LV_ALIGN_CENTER, 0, -8);
 
     s_status_text = lv_label_create(pet_card);
     lv_obj_set_style_text_color(s_status_text, theme_color_text(), LV_PART_MAIN);
@@ -341,6 +363,8 @@ void tamagotchi_show(void) {
 
     // Re-apply decay every 15 minutes while screen is open
     s_decay_timer = lv_timer_create(decay_tick_cb, 15UL * 60UL * 1000UL, NULL);
+    // Sprite animation at 200ms/frame (5 FPS — matches spec)
+    s_anim_timer = lv_timer_create(sprite_tick_cb, 200, NULL);
 
     nav_push(scr, NAV_ANIM_SLIDE_LEFT);
 }

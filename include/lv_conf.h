@@ -120,7 +120,7 @@
  *================*/
 #define LV_USE_FS_STDIO        1
 #define LV_FS_STDIO_LETTER     'S'
-#define LV_FS_STDIO_PATH       ""
+#define LV_FS_STDIO_PATH       "/sd"   /* ESP32 Arduino SD library mounts here */
 #define LV_FS_STDIO_CACHE_SIZE 0
 
 #define LV_USE_FS_POSIX        0
