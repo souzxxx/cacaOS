@@ -106,10 +106,33 @@ static void show_splash(void) {
     lv_obj_t* scr = lv_screen_active();
     lv_obj_set_style_bg_color(scr, theme_color_bg(), LV_PART_MAIN);
 
-    lv_obj_t* label = lv_label_create(scr);
-    lv_label_set_text(label, "CacaOS\n" LV_SYMBOL_DRIVE " carregando...");
-    lv_obj_set_style_text_color(label, theme_color_text(), LV_PART_MAIN);
-    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, LV_PART_MAIN);
-    lv_obj_center(label);
+    // Soft rounded card in the middle
+    lv_obj_t* card = lv_obj_create(scr);
+    lv_obj_set_size(card, 220, 240);
+    lv_obj_center(card);
+    lv_obj_set_style_bg_color(card, theme_color_card(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(card, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(card, 24, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(card, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Try to show the white bunny idle sprite from SD as a logo (frame 0)
+    lv_obj_t* bunny = lv_image_create(card);
+    lv_image_set_src(bunny, "S:/tamagotchi_sprites/cacaos_pet_assets/pets/white/idle.png");
+    lv_obj_set_size(bunny, 32, 32);
+    lv_image_set_scale(bunny, 1024);            // 4x = 128x128 visible area
+    lv_image_set_inner_align(bunny, LV_IMAGE_ALIGN_TOP_LEFT);
+    lv_obj_align(bunny, LV_ALIGN_TOP_MID, 0, 30);
+
+    lv_obj_t* title = lv_label_create(card);
+    lv_label_set_text(title, "CacaOS");
+    lv_obj_set_style_text_color(title, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_obj_align(title, LV_ALIGN_BOTTOM_MID, 0, -38);
+
+    lv_obj_t* sub = lv_label_create(card);
+    lv_label_set_text(sub, "carregando...");
+    lv_obj_set_style_text_color(sub, theme_color_text_light(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(sub, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_align(sub, LV_ALIGN_BOTTOM_MID, 0, -14);
 }

@@ -63,6 +63,8 @@ static constexpr int SPRITE_FRAME_W = 32;
 static constexpr int SPRITE_FRAME_H = 32;
 static constexpr int SPRITE_FRAME_COUNT = 12;
 static constexpr const char* PET_SLUG_DEFAULT = "white";
+static constexpr const char* BG_PATH_DEFAULT =
+    "S:/tamagotchi_sprites/cacaos_pet_assets/backgrounds/classic/02.png";
 
 static uint8_t clamp_stat(int v) {
     if (v < 0) return 0;
@@ -329,30 +331,39 @@ void tamagotchi_show(void) {
     make_stat_row(scr, 100, "ener",   0xFFD166, &s_energy_bar, &s_energy_val);
     make_stat_row(scr, 126, "limpa",  0x9AE5E0, &s_clean_bar,  &s_clean_val);
 
-    // Pet area (placeholder)
+    // Pet area: background image fills container, sprite on top, status below
     lv_obj_t* pet_card = lv_obj_create(scr);
-    lv_obj_set_size(pet_card, 220, 96);
-    lv_obj_align(pet_card, LV_ALIGN_TOP_MID, 0, 154);
-    lv_obj_add_style(pet_card, &theme_style_card, LV_PART_MAIN);
+    lv_obj_set_size(pet_card, 240, 100);
+    lv_obj_align(pet_card, LV_ALIGN_TOP_MID, 0, 152);
+    lv_obj_set_style_bg_color(pet_card, theme_color_text_light(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(pet_card, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(pet_card, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(pet_card, 0, LV_PART_MAIN);
     lv_obj_clear_flag(pet_card, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* bg_img = lv_image_create(pet_card);
+    lv_obj_set_size(bg_img, 240, 100);
+    lv_image_set_src(bg_img, BG_PATH_DEFAULT);
+    lv_image_set_inner_align(bg_img, LV_IMAGE_ALIGN_BOTTOM_MID);
+    lv_obj_align(bg_img, LV_ALIGN_CENTER, 0, 0);
 
     s_pet_img = lv_image_create(pet_card);
     lv_obj_set_size(s_pet_img, SPRITE_FRAME_W, SPRITE_FRAME_H);
     lv_image_set_scale(s_pet_img, 768);   // 3x = 96x96 visible
     lv_image_set_inner_align(s_pet_img, LV_IMAGE_ALIGN_TOP_LEFT);
-    lv_obj_align(s_pet_img, LV_ALIGN_CENTER, 0, -8);
+    lv_obj_align(s_pet_img, LV_ALIGN_CENTER, 0, 0);
 
-    s_status_text = lv_label_create(pet_card);
-    lv_obj_set_style_text_color(s_status_text, theme_color_text(), LV_PART_MAIN);
+    s_status_text = lv_label_create(scr);
+    lv_obj_set_style_text_color(s_status_text, theme_color_accent(), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_status_text, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_align(s_status_text, LV_ALIGN_BOTTOM_MID, 0, -4);
+    lv_obj_align(s_status_text, LV_ALIGN_TOP_MID, 0, 256);
 
     // Action buttons
     constexpr int BTN_W = 46;
     constexpr int GAP = 8;
     constexpr int row_w = BTN_W * 4 + GAP * 3;
     int sx = (240 - row_w) / 2;
-    int sy = 260;
+    int sy = 278;
 
     make_action_btn(scr, sx,                            sy, "feed",  feed_cb);
     make_action_btn(scr, sx + (BTN_W + GAP),            sy, "play",  play_cb);

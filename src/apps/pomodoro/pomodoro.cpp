@@ -15,6 +15,11 @@ enum PomState { POMO_IDLE, POMO_FOCUS, POMO_BREAK, POMO_PAUSED_FOCUS, POMO_PAUSE
 
 static constexpr uint32_t FOCUS_SECONDS = 25 * 60;
 static constexpr uint32_t BREAK_SECONDS = 5 * 60;
+static constexpr int SPEAKER_PIN = 26;
+
+static void beep(unsigned freq_hz, unsigned dur_ms) {
+    tone(SPEAKER_PIN, freq_hz, dur_ms);
+}
 
 static PomState   s_state = POMO_IDLE;
 static uint32_t   s_seconds_left = FOCUS_SECONDS;
@@ -83,9 +88,11 @@ static void tick_cb(lv_timer_t* /*t*/) {
         s_completed_focus++;
         s_state = POMO_BREAK;
         s_seconds_left = BREAK_SECONDS;
+        beep(880, 200);
     } else {
         s_state = POMO_FOCUS;
         s_seconds_left = FOCUS_SECONDS;
+        beep(660, 200);
     }
     refresh_all();
 }
