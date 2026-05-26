@@ -392,6 +392,7 @@ static lv_obj_t* make_action_btn(lv_obj_t* parent, int x, int y, const char* sym
 static void show_main_screen(void);
 static void wizard_show_welcome(void);
 static void wizard_show_picker(void);
+static void wizard_show_naming(void);
 
 void tamagotchi_show(void) {
     load_state();
@@ -625,21 +626,15 @@ static void picker_back_cb(lv_event_t* /*e*/) {
 }
 
 static void picker_confirm_cb(lv_event_t* /*e*/) {
-    // Persist selection + mark initialized + transition to main
+    // Persist slug, then go to naming screen
     strncpy(s_state.slug, PET_SLUGS[s_picker_selected], sizeof(s_state.slug) - 1);
     s_state.slug[sizeof(s_state.slug) - 1] = '\0';
-    if (s_state.name[0] == '\0') {
-        strncpy(s_state.name, DEFAULT_PET_NAME, sizeof(s_state.name) - 1);
-        s_state.name[sizeof(s_state.name) - 1] = '\0';
-    }
-    s_state.initialized = true;
-    update_last_unix_and_save();   // also saves all fields
 
     for (int i = 0; i < PET_COUNT; ++i) s_picker_cards[i] = nullptr;
     s_picker_preview_name = nullptr;
 
     nav_pop(NAV_ANIM_NONE);
-    show_main_screen();
+    wizard_show_naming();
 }
 
 static void wizard_show_picker(void) {
@@ -733,6 +728,101 @@ static void wizard_show_picker(void) {
     // Initialize selection to first pet
     s_picker_selected = 0;
     picker_repaint_selection();
+
+    nav_push(scr, NAV_ANIM_SLIDE_LEFT);
+}
+
+// ----- Naming -----
+static lv_obj_t* s_name_input = nullptr;
+static char s_name_sprite_path[96];
+
+static void naming_back_cb(lv_event_t* /*e*/) {
+    s_name_input = nullptr;
+    nav_pop(NAV_ANIM_NONE);
+    wizard_show_picker();
+}
+
+static void naming_confirm_cb(lv_event_t* /*e*/) {
+    if (!s_name_input) return;
+    const char* typed = lv_textarea_get_text(s_name_input);
+    if (!typed || typed[0] == '\0') typed = DEFAULT_PET_NAME;
+    strncpy(s_state.name, typed, sizeof(s_state.name) - 1);
+    s_state.name[sizeof(s_state.name) - 1] = '\0';
+    s_state.initialized = true;
+    update_last_unix_and_save();
+
+    s_name_input = nullptr;
+    nav_pop(NAV_ANIM_NONE);
+    show_main_screen();
+}
+
+static void naming_ready_cb(lv_event_t* e) {
+    // Triggered when keyboard's "ok" key is pressed
+    if (lv_event_get_code(e) == LV_EVENT_READY) {
+        naming_confirm_cb(e);
+    }
+}
+
+static void wizard_show_naming(void) {
+    lv_obj_t* scr = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(scr, theme_color_bg(), LV_PART_MAIN);
+    lv_obj_set_style_pad_all(scr, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Header
+    lv_obj_t* header = lv_obj_create(scr);
+    lv_obj_set_size(header, 240, 40);
+    lv_obj_set_pos(header, 0, 0);
+    lv_obj_set_style_bg_color(header, theme_color_primary(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(header, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(header, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* back_btn = lv_button_create(header);
+    lv_obj_set_size(back_btn, 36, 28);
+    lv_obj_align(back_btn, LV_ALIGN_LEFT_MID, 4, 0);
+    lv_obj_set_style_bg_color(back_btn, theme_color_card(), LV_PART_MAIN);
+    lv_obj_set_style_radius(back_btn, 8, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(back_btn, 0, LV_PART_MAIN);
+    lv_obj_add_event_cb(back_btn, naming_back_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* back_lbl = lv_label_create(back_btn);
+    lv_label_set_text(back_lbl, LV_SYMBOL_LEFT);
+    lv_obj_set_style_text_color(back_lbl, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_center(back_lbl);
+
+    lv_obj_t* title = lv_label_create(header);
+    lv_label_set_text(title, "Nome da pet");
+    lv_obj_set_style_text_color(title, theme_color_card(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_18, LV_PART_MAIN);
+    lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
+
+    // Selected pet preview (small sprite frame 0)
+    lv_obj_t* preview = lv_image_create(scr);
+    snprintf(s_name_sprite_path, sizeof(s_name_sprite_path),
+             "S:/tamagotchi_sprites/cacaos_pet_assets/pets/%s/idle.png", s_state.slug);
+    lv_image_set_src(preview, s_name_sprite_path);
+    lv_obj_set_size(preview, SPRITE_FRAME_W, SPRITE_FRAME_H);
+    lv_image_set_scale(preview, 512);   // 2x
+    lv_image_set_inner_align(preview, LV_IMAGE_ALIGN_TOP_LEFT);
+    lv_obj_align(preview, LV_ALIGN_TOP_MID, 0, 50);
+
+    // Textarea with default name
+    s_name_input = lv_textarea_create(scr);
+    lv_obj_set_size(s_name_input, 200, 40);
+    lv_obj_align(s_name_input, LV_ALIGN_TOP_MID, 0, 120);
+    lv_textarea_set_one_line(s_name_input, true);
+    lv_textarea_set_max_length(s_name_input, 12);
+    lv_textarea_set_text(s_name_input, DEFAULT_PET_NAME);
+    lv_textarea_set_placeholder_text(s_name_input, "como ela se chama?");
+    lv_obj_set_style_text_font(s_name_input, &lv_font_montserrat_18, LV_PART_MAIN);
+    lv_obj_add_event_cb(s_name_input, naming_ready_cb, LV_EVENT_READY, NULL);
+
+    // Keyboard (bottom half)
+    lv_obj_t* kb = lv_keyboard_create(scr);
+    lv_obj_set_size(kb, 240, 150);
+    lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_keyboard_set_textarea(kb, s_name_input);
+    lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_TEXT_LOWER);
 
     nav_push(scr, NAV_ANIM_SLIDE_LEFT);
 }

@@ -243,12 +243,12 @@ Aqui o presente já é absurdo. As próximas fases dá pra empurrar depois.
 - [x] Sprite atlas: PNG 384x32 (12 frames) animado a 200ms/frame
 - [x] Anim escolhido pelo estado: idle / sad / sleep / happy
 - [x] Background `classic/02.png` atrás do pet
-- [x] Adoption wizard mínimo (welcome + pet picker 3x3 com 9 variantes)
-- [x] Pet picker — escolha persistida no NVS (`slug`), reflete no sprite
-- [x] Reset button no header (gear icon) → dialog de confirmação → retriggera wizard
-- [ ] Nome customizado (atualmente usa `DEFAULT_PET_NAME` do config.h — falta keyboard on-screen)
-- [ ] Background picker com 20 quartos
-- [ ] Settings menu completo (gear icon expande pra renomear, trocar pet/bg)
+- [x] Adoption wizard (welcome + pet picker + naming) — fluxo completo na 1ª entrada
+- [x] Pet picker 3x3 com 9 variantes — slug persistido no NVS
+- [x] Naming screen com `lv_keyboard` on-screen (max 12 chars)
+- [x] Reset button no header (gear icon) → dialog → retriggera wizard
+- [ ] Background picker com 20 quartos (usa `classic/02.png` por enquanto)
+- [ ] Settings menu expandido (trocar pet/bg/nome sem resetar stats)
 - [ ] Achievements (desbloqueia `demonic` por exemplo)
 - [ ] Pet sad textbox quando algum stat zera
 
