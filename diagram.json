@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "author": "CacaOS",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-devkit-c-v4",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-ili9341",
+      "id": "lcd",
+      "top": -240,
+      "left": 280,
+      "rotate": 90,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-microsd-card",
+      "id": "sd",
+      "top": 240,
+      "left": 280,
+      "attrs": {}
+    }
+  ],
+  "connections": [
+    ["esp:3V3", "lcd:VCC", "red", []],
+    ["esp:GND.1", "lcd:GND", "black", []],
+    ["esp:13", "lcd:MOSI", "green", []],
+    ["esp:12", "lcd:MISO", "blue", []],
+    ["esp:14", "lcd:SCK", "yellow", []],
+    ["esp:15", "lcd:CS", "orange", []],
+    ["esp:2", "lcd:D/C", "purple", []],
+    ["esp:21", "lcd:LED", "white", []],
+
+    ["esp:32", "lcd:T_DIN", "limegreen", []],
+    ["esp:39", "lcd:T_DO", "cyan", []],
+    ["esp:25", "lcd:T_CLK", "gold", []],
+    ["esp:33", "lcd:T_CS", "magenta", []],
+    ["esp:36", "lcd:T_IRQ", "violet", []],
+
+    ["esp:3V3", "sd:VCC", "red", []],
+    ["esp:GND.2", "sd:GND", "black", []],
+    ["esp:23", "sd:DI", "green", []],
+    ["esp:19", "sd:DO", "blue", []],
+    ["esp:18", "sd:SCK", "yellow", []],
+    ["esp:5", "sd:CS", "orange", []]
+  ],
+  "dependencies": {}
+}
