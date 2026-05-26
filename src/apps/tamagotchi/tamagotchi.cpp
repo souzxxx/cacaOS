@@ -82,6 +82,17 @@ static const char* PET_LABELS[PET_COUNT] = {
 
 static int s_picker_selected = 0;
 
+// Edit mode lets settings-driven pickers skip the wizard chain.
+enum EditTarget { EDIT_NONE = 0, EDIT_PET, EDIT_NAME, EDIT_BG };
+static EditTarget s_edit_target = EDIT_NONE;
+
+// Forward declarations (definitions lower in the file)
+static void show_main_screen(void);
+static void wizard_show_welcome(void);
+static void wizard_show_picker(void);
+static void wizard_show_naming(void);
+static void wizard_show_bg_picker(void);
+
 static lv_obj_t* s_name_label = nullptr;
 static lv_obj_t* s_hunger_bar = nullptr;
 static lv_obj_t* s_happy_bar  = nullptr;
@@ -334,9 +345,127 @@ static void back_event_cb(lv_event_t* /*e*/) {
 }
 
 static void confirm_reset_dialog(void);
+static void show_settings_menu(void);
 
 static void reset_btn_cb(lv_event_t* /*e*/) {
+    show_settings_menu();
+}
+
+static void settings_close_cb(lv_event_t* e) {
+    lv_obj_t* overlay = (lv_obj_t*)lv_event_get_user_data(e);
+    if (overlay) lv_obj_delete(overlay);
+}
+
+static void settings_pick_pet_cb(lv_event_t* e) {
+    lv_obj_t* overlay = (lv_obj_t*)lv_event_get_user_data(e);
+    if (overlay) lv_obj_delete(overlay);
+    s_edit_target = EDIT_PET;
+    // Close current main screen and open picker as a fresh push
+    if (s_decay_timer) { lv_timer_delete(s_decay_timer); s_decay_timer = nullptr; }
+    if (s_anim_timer)  { lv_timer_delete(s_anim_timer);  s_anim_timer  = nullptr; }
+    rgb_led_off();
+    s_name_label = s_hunger_bar = s_happy_bar = s_energy_bar = s_clean_bar = nullptr;
+    s_hunger_val = s_happy_val = s_energy_val = s_clean_val = nullptr;
+    s_pet_img = s_status_text = nullptr;
+    nav_pop(NAV_ANIM_NONE);
+    wizard_show_picker();
+}
+
+static void settings_pick_name_cb(lv_event_t* e) {
+    lv_obj_t* overlay = (lv_obj_t*)lv_event_get_user_data(e);
+    if (overlay) lv_obj_delete(overlay);
+    s_edit_target = EDIT_NAME;
+    if (s_decay_timer) { lv_timer_delete(s_decay_timer); s_decay_timer = nullptr; }
+    if (s_anim_timer)  { lv_timer_delete(s_anim_timer);  s_anim_timer  = nullptr; }
+    rgb_led_off();
+    s_name_label = s_hunger_bar = s_happy_bar = s_energy_bar = s_clean_bar = nullptr;
+    s_hunger_val = s_happy_val = s_energy_val = s_clean_val = nullptr;
+    s_pet_img = s_status_text = nullptr;
+    nav_pop(NAV_ANIM_NONE);
+    wizard_show_naming();
+}
+
+static void settings_pick_bg_cb(lv_event_t* e) {
+    lv_obj_t* overlay = (lv_obj_t*)lv_event_get_user_data(e);
+    if (overlay) lv_obj_delete(overlay);
+    s_edit_target = EDIT_BG;
+    if (s_decay_timer) { lv_timer_delete(s_decay_timer); s_decay_timer = nullptr; }
+    if (s_anim_timer)  { lv_timer_delete(s_anim_timer);  s_anim_timer  = nullptr; }
+    rgb_led_off();
+    s_name_label = s_hunger_bar = s_happy_bar = s_energy_bar = s_clean_bar = nullptr;
+    s_hunger_val = s_happy_val = s_energy_val = s_clean_val = nullptr;
+    s_pet_img = s_status_text = nullptr;
+    nav_pop(NAV_ANIM_NONE);
+    wizard_show_bg_picker();
+}
+
+static void settings_pick_reset_cb(lv_event_t* e) {
+    lv_obj_t* overlay = (lv_obj_t*)lv_event_get_user_data(e);
+    if (overlay) lv_obj_delete(overlay);
     confirm_reset_dialog();
+}
+
+static void show_settings_menu(void) {
+    lv_obj_t* parent = lv_screen_active();
+    if (!parent) return;
+
+    lv_obj_t* dim = lv_obj_create(parent);
+    lv_obj_set_size(dim, 240, 320);
+    lv_obj_set_pos(dim, 0, 0);
+    lv_obj_set_style_bg_color(dim, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(dim, LV_OPA_50, LV_PART_MAIN);
+    lv_obj_set_style_border_width(dim, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(dim, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(dim, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* card = lv_obj_create(dim);
+    lv_obj_set_size(card, 200, 230);
+    lv_obj_center(card);
+    lv_obj_add_style(card, &theme_style_card, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(card, 12, LV_PART_MAIN);
+    lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* title = lv_label_create(card);
+    lv_label_set_text(title, "Ajustes da Caca");
+    lv_obj_set_style_text_color(title, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_18, LV_PART_MAIN);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 0);
+
+    auto make_menu_btn = [&](int y_off, const char* text, lv_event_cb_t cb, bool destructive) {
+        lv_obj_t* b = lv_button_create(card);
+        lv_obj_set_size(b, 174, 32);
+        lv_obj_align(b, LV_ALIGN_TOP_MID, 0, y_off);
+        lv_obj_set_style_bg_color(b, destructive ? theme_color_text_light() : theme_color_card(),
+                                  LV_PART_MAIN);
+        lv_obj_set_style_border_width(b, 1, LV_PART_MAIN);
+        lv_obj_set_style_border_color(b, theme_color_accent(), LV_PART_MAIN);
+        lv_obj_set_style_radius(b, THEME_RADIUS_BUTTON, LV_PART_MAIN);
+        lv_obj_set_style_shadow_width(b, 0, LV_PART_MAIN);
+        lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, dim);
+        lv_obj_t* l = lv_label_create(b);
+        lv_label_set_text(l, text);
+        lv_obj_set_style_text_color(l, theme_color_accent(), LV_PART_MAIN);
+        lv_obj_set_style_text_font(l, &lv_font_montserrat_14, LV_PART_MAIN);
+        lv_obj_center(l);
+    };
+
+    make_menu_btn(34,  "trocar pet",       settings_pick_pet_cb,   false);
+    make_menu_btn(70,  "renomear",         settings_pick_name_cb,  false);
+    make_menu_btn(106, "trocar quarto",    settings_pick_bg_cb,    false);
+    make_menu_btn(146, "resetar tudo",     settings_pick_reset_cb, true);
+
+    // Close button at the bottom
+    lv_obj_t* close = lv_button_create(card);
+    lv_obj_set_size(close, 174, 28);
+    lv_obj_align(close, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_bg_color(close, theme_color_text_light(), LV_PART_MAIN);
+    lv_obj_set_style_radius(close, THEME_RADIUS_BUTTON, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(close, 0, LV_PART_MAIN);
+    lv_obj_add_event_cb(close, settings_close_cb, LV_EVENT_CLICKED, dim);
+    lv_obj_t* close_lbl = lv_label_create(close);
+    lv_label_set_text(close_lbl, "fechar");
+    lv_obj_set_style_text_color(close_lbl, theme_color_text(), LV_PART_MAIN);
+    lv_obj_center(close_lbl);
 }
 
 static void confirm_reset_yes_cb(lv_event_t* e) {
@@ -697,15 +826,21 @@ static void picker_back_cb(lv_event_t* /*e*/) {
 }
 
 static void picker_confirm_cb(lv_event_t* /*e*/) {
-    // Persist slug, then go to naming screen
     strncpy(s_state.slug, PET_SLUGS[s_picker_selected], sizeof(s_state.slug) - 1);
     s_state.slug[sizeof(s_state.slug) - 1] = '\0';
 
     for (int i = 0; i < PET_COUNT; ++i) s_picker_cards[i] = nullptr;
     s_picker_preview_name = nullptr;
 
-    nav_pop(NAV_ANIM_NONE);
-    wizard_show_naming();
+    if (s_edit_target == EDIT_PET) {
+        s_edit_target = EDIT_NONE;
+        save_state();
+        nav_pop(NAV_ANIM_NONE);
+        show_main_screen();
+    } else {
+        nav_pop(NAV_ANIM_NONE);
+        wizard_show_naming();
+    }
 }
 
 static void wizard_show_picker(void) {
@@ -821,8 +956,16 @@ static void naming_confirm_cb(lv_event_t* /*e*/) {
     s_state.name[sizeof(s_state.name) - 1] = '\0';
 
     s_name_input = nullptr;
-    nav_pop(NAV_ANIM_NONE);
-    wizard_show_bg_picker();
+
+    if (s_edit_target == EDIT_NAME) {
+        s_edit_target = EDIT_NONE;
+        save_state();
+        nav_pop(NAV_ANIM_NONE);
+        show_main_screen();
+    } else {
+        nav_pop(NAV_ANIM_NONE);
+        wizard_show_bg_picker();
+    }
 }
 
 static void naming_ready_cb(lv_event_t* e) {
@@ -935,7 +1078,12 @@ static void bg_picker_back_cb(lv_event_t* /*e*/) {
 
 static void bg_picker_confirm_cb(lv_event_t* /*e*/) {
     short_bg_for_index(s_bg_picker_idx, s_state.bg, sizeof(s_state.bg));
-    s_state.initialized = true;
+    if (s_edit_target == EDIT_BG) {
+        s_edit_target = EDIT_NONE;
+    } else {
+        // First-boot wizard finished here
+        s_state.initialized = true;
+    }
     update_last_unix_and_save();
 
     s_bg_preview = s_bg_label = nullptr;

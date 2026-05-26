@@ -265,9 +265,9 @@ Aqui o presente já é absurdo. As próximas fases dá pra empurrar depois.
 - [x] Pet picker 3x3 com 9 variantes — slug persistido no NVS
 - [x] Naming screen com `lv_keyboard` on-screen (max 12 chars)
 - [x] Background picker carousel com 25 quartos (20 classic + 5 xmas)
-- [x] Reset button no header (gear icon) → dialog → retriggera wizard
+- [x] Reset button no header (gear icon) → menu com opções (trocar pet/nome/quarto sem perder stats, ou resetar tudo)
 - [x] Pet sad textbox: quando algum stat zera, status_text vira balão accent
-- [ ] Settings menu expandido (trocar pet/bg/nome sem resetar stats)
+- [x] Settings menu expandido (trocar pet/bg/nome sem resetar stats — via flag s_edit_target)
 - [ ] Achievements (desbloqueia `demonic` por exemplo)
 
 ---
