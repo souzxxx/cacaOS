@@ -28,6 +28,7 @@
 #include "../apps/pomodoro/pomodoro.h"
 #include "../apps/mood_tracker/mood_tracker.h"
 #include "../apps/tamagotchi/tamagotchi.h"
+#include "../apps/settings/settings.h"
 
 static lv_obj_t* s_screen = nullptr;
 static lv_obj_t* s_time_label = nullptr;
@@ -50,7 +51,7 @@ static const AppEntry s_apps[] = {
     { "Pomodoro",  LV_SYMBOL_LOOP,    pomodoro_show    },
     { "Humor",     LV_SYMBOL_EYE_OPEN, mood_tracker_show },
     { "Pet",       LV_SYMBOL_HOME,    tamagotchi_show  },
-    // 9th slot intentionally empty (for future "Settings" app)
+    { "Ajustes",   LV_SYMBOL_SETTINGS, settings_show   },
 };
 
 static void update_time_label(void);

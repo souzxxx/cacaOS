@@ -201,7 +201,7 @@ cacaos/
 ### Fase 4 — Contador + Open When (dia 8-9) — ✅ pronto
 - [x] **Counter:** data início em `config.h`, calcula dias/horas/minutos em tempo real (refresh 30s)
 - [x] **Open When:** lista `open_when/*.txt` do SD, cada arquivo vira um envelope clicável
-- [ ] Confete pixel a cada 100 dias (visual polish)
+- [x] Confete pixel a cada 100 dias (overlay com "X dias!" + auto-dismiss em 4s)
 - [ ] Animação de abrir envelope (3 frames)
 
 **Critério de aceite:** contador atualiza vivo, envelopes abrem — *validar com placa*.
@@ -235,7 +235,14 @@ Aqui o presente já é absurdo. As próximas fases dá pra empurrar depois.
 - [ ] Histórico mensal em calendário 7x5 (atualmente só 7 dias)
 - [ ] Sprite-art emojis em vez de texto `:D / :)` etc
 
-### Fase 8 — Tamagotchi (dia 17-20) — 🟡 core + wizard mínimo prontos
+### Bonus — Settings app — ✅ pronto
+- [x] 9º slot do homescreen vira "Ajustes"
+- [x] Brightness slider (16..255) salvo em NVS `system/brightness`, aplicado no boot
+- [x] Card "Sobre CacaOS" com versão
+- [x] Resetar pet (com confirmação) — wipe do `tama.init` flag
+- [x] Recalibrar touch (com confirmação) — wipe da calibração NVS, próximo boot recalibra
+
+### Fase 8 — Tamagotchi (dia 17-20) — 🟢 core + wizard completo prontos
 - [x] Stats: hunger/happiness/energy/cleanliness (0-100 cada) no NVS namespace `tama`
 - [x] Decay model: -1/h hunger, -1/h happiness, -2/h energy, -1/(2h) cleanliness
 - [x] Catch-up decay no boot (cap em 24h pra não auto-matar)
@@ -243,14 +250,14 @@ Aqui o presente já é absurdo. As próximas fases dá pra empurrar depois.
 - [x] Sprite atlas: PNG 384x32 (12 frames) animado a 200ms/frame
 - [x] Anim escolhido pelo estado: idle / sad / sleep / happy
 - [x] Background `classic/02.png` atrás do pet
-- [x] Adoption wizard (welcome + pet picker + naming) — fluxo completo na 1ª entrada
+- [x] Adoption wizard completo (welcome → pet picker → naming → bg picker)
 - [x] Pet picker 3x3 com 9 variantes — slug persistido no NVS
 - [x] Naming screen com `lv_keyboard` on-screen (max 12 chars)
+- [x] Background picker carousel com 25 quartos (20 classic + 5 xmas)
 - [x] Reset button no header (gear icon) → dialog → retriggera wizard
-- [ ] Background picker com 20 quartos (usa `classic/02.png` por enquanto)
+- [x] Pet sad textbox: quando algum stat zera, status_text vira balão accent
 - [ ] Settings menu expandido (trocar pet/bg/nome sem resetar stats)
 - [ ] Achievements (desbloqueia `demonic` por exemplo)
-- [ ] Pet sad textbox quando algum stat zera
 
 ---
 

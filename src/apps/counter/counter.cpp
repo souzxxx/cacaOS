@@ -35,6 +35,15 @@ static time_t parse_start_date(void) {
     return mktime(&tm_start);
 }
 
+static int64_t s_last_days_shown = -1;
+
+static int64_t compute_days_now(void) {
+    time_t now = time(nullptr);
+    time_t start = parse_start_date();
+    if (start == 0 || now < start) return -1;
+    return ((int64_t)now - (int64_t)start) / 86400;
+}
+
 static void refresh_values(void) {
     if (!s_days_label) return;
 
@@ -60,6 +69,59 @@ static void refresh_values(void) {
     lv_label_set_text(s_hours_label, buf);
     snprintf(buf, sizeof(buf), "%02lld", (long long)mins);
     lv_label_set_text(s_mins_label, buf);
+
+    s_last_days_shown = days;
+}
+
+static void dismiss_milestone_overlay(lv_event_t* e) {
+    lv_obj_t* overlay = (lv_obj_t*)lv_event_get_target(e);
+    if (overlay) lv_obj_delete(overlay);
+}
+
+static void auto_dismiss_milestone_cb(lv_timer_t* t) {
+    lv_obj_t* overlay = (lv_obj_t*)lv_timer_get_user_data(t);
+    if (overlay) lv_obj_delete(overlay);
+    lv_timer_delete(t);
+}
+
+static void show_milestone_overlay(int64_t days) {
+    lv_obj_t* parent = lv_screen_active();
+    if (!parent) return;
+
+    lv_obj_t* dim = lv_obj_create(parent);
+    lv_obj_set_size(dim, 240, 320);
+    lv_obj_set_pos(dim, 0, 0);
+    lv_obj_set_style_bg_color(dim, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(dim, LV_OPA_50, LV_PART_MAIN);
+    lv_obj_set_style_border_width(dim, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(dim, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(dim, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(dim, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(dim, dismiss_milestone_overlay, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t* card = lv_obj_create(dim);
+    lv_obj_set_size(card, 200, 140);
+    lv_obj_center(card);
+    lv_obj_add_style(card, &theme_style_card, LV_PART_MAIN);
+    lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* big = lv_label_create(card);
+    char buf[40];
+    snprintf(buf, sizeof(buf), "%lld dias!", (long long)days);
+    lv_label_set_text(big, buf);
+    lv_obj_set_style_text_color(big, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(big, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_obj_align(big, LV_ALIGN_TOP_MID, 0, 14);
+
+    lv_obj_t* sub = lv_label_create(card);
+    lv_label_set_text(sub, LV_SYMBOL_OK " " LV_SYMBOL_OK " " LV_SYMBOL_OK "\nfestejando esse marco");
+    lv_obj_set_style_text_align(sub, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_color(sub, theme_color_text(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(sub, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_align(sub, LV_ALIGN_BOTTOM_MID, 0, -8);
+
+    lv_timer_t* auto_dismiss = lv_timer_create(auto_dismiss_milestone_cb, 4000, dim);
+    lv_timer_set_repeat_count(auto_dismiss, 1);
 }
 
 static void tick_cb(lv_timer_t* /*t*/) {
@@ -174,4 +236,10 @@ void counter_show(void) {
     s_tick = lv_timer_create(tick_cb, 30 * 1000, NULL);
 
     nav_push(scr, NAV_ANIM_SLIDE_LEFT);
+
+    // Milestone celebration: every 100 days starting from day 100
+    int64_t days_now = compute_days_now();
+    if (days_now >= 100 && days_now % 100 == 0) {
+        show_milestone_overlay(days_now);
+    }
 }

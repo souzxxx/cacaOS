@@ -35,6 +35,7 @@ static constexpr uint32_t MAX_DECAY_HOURS = 24;
 struct PetState {
     char    name[16];
     char    slug[16];
+    char    bg[24];        // e.g. "classic/02.png" or "xmas/05.png"
     uint8_t hunger;
     uint8_t happiness;
     uint8_t energy;
@@ -44,6 +45,26 @@ struct PetState {
 };
 
 static PetState s_state;
+
+static constexpr int CLASSIC_BG_COUNT = 20;
+static constexpr int XMAS_BG_COUNT    = 5;
+static constexpr int TOTAL_BG_COUNT   = CLASSIC_BG_COUNT + XMAS_BG_COUNT;
+
+static char s_full_bg_path[96];
+
+static const char* full_bg_path(const char* short_bg) {
+    snprintf(s_full_bg_path, sizeof(s_full_bg_path),
+             "S:/tamagotchi_sprites/cacaos_pet_assets/backgrounds/%s", short_bg);
+    return s_full_bg_path;
+}
+
+static void short_bg_for_index(int idx, char* out, size_t out_sz) {
+    if (idx < CLASSIC_BG_COUNT) {
+        snprintf(out, out_sz, "classic/%02d.png", idx + 1);
+    } else {
+        snprintf(out, out_sz, "xmas/%02d.png", (idx - CLASSIC_BG_COUNT) + 1);
+    }
+}
 
 // Pet variants — 9 picker slots + demonic locked (spec §7 achievement)
 static const char* PET_SLUGS[] = {
@@ -79,8 +100,7 @@ static char s_sprite_path[96];
 static constexpr int SPRITE_FRAME_W = 32;
 static constexpr int SPRITE_FRAME_H = 32;
 static constexpr int SPRITE_FRAME_COUNT = 12;
-static constexpr const char* BG_PATH_DEFAULT =
-    "S:/tamagotchi_sprites/cacaos_pet_assets/backgrounds/classic/02.png";
+static constexpr const char* BG_DEFAULT_SHORT = "classic/02.png";
 
 static uint8_t clamp_stat(int v) {
     if (v < 0) return 0;
@@ -96,6 +116,8 @@ static void load_state(void) {
         s_state.name[sizeof(s_state.name) - 1] = '\0';
         strncpy(s_state.slug, PET_SLUGS[0], sizeof(s_state.slug) - 1);
         s_state.slug[sizeof(s_state.slug) - 1] = '\0';
+        strncpy(s_state.bg, BG_DEFAULT_SHORT, sizeof(s_state.bg) - 1);
+        s_state.bg[sizeof(s_state.bg) - 1] = '\0';
         s_state.hunger = s_state.happiness = s_state.energy = s_state.cleanliness = 80;
         s_state.last_unix = 0;
         s_state.initialized = false;
@@ -107,6 +129,9 @@ static void load_state(void) {
     String slug = p.getString("slug", PET_SLUGS[0]);
     strncpy(s_state.slug, slug.c_str(), sizeof(s_state.slug) - 1);
     s_state.slug[sizeof(s_state.slug) - 1] = '\0';
+    String bg = p.getString("bg", BG_DEFAULT_SHORT);
+    strncpy(s_state.bg, bg.c_str(), sizeof(s_state.bg) - 1);
+    s_state.bg[sizeof(s_state.bg) - 1] = '\0';
     s_state.hunger      = p.getUChar("hunger",      80);
     s_state.happiness   = p.getUChar("happiness",   80);
     s_state.energy      = p.getUChar("energy",      80);
@@ -121,6 +146,7 @@ static void save_state(void) {
     if (!p.begin("tama", false)) return;
     p.putString("name", s_state.name);
     p.putString("slug", s_state.slug);
+    p.putString("bg",   s_state.bg);
     p.putUChar("hunger",    s_state.hunger);
     p.putUChar("happiness", s_state.happiness);
     p.putUChar("energy",    s_state.energy);
@@ -175,11 +201,23 @@ static const char* sprite_path_for(const char* slug, const char* anim) {
     return s_sprite_path;
 }
 
+static bool any_stat_critical(void) {
+    return s_state.hunger == 0 || s_state.happiness == 0 ||
+           s_state.energy == 0 || s_state.cleanliness == 0;
+}
+
 static const char* status_message(void) {
+    // Critical: any stat at 0 — most urgent voice
+    if (s_state.hunger      == 0) return "Caca ta com MUITA fome!";
+    if (s_state.cleanliness == 0) return "Caca precisa de banho ja!";
+    if (s_state.energy      == 0) return "Caca ta exausto!";
+    if (s_state.happiness   == 0) return "Caca ta muito triste...";
+    // Low: nudges
     if (s_state.hunger      < 25) return "Caca ta com fominha...";
     if (s_state.happiness   < 25) return "Caca ta meio triste...";
     if (s_state.energy      < 25) return "Caca ta com sono...";
     if (s_state.cleanliness < 25) return "Caca precisa de banho...";
+    // Happy
     if (s_state.hunger >= 80 && s_state.happiness >= 80) return "Caca ta feliz!";
     return "";
 }
@@ -209,7 +247,23 @@ static void refresh_ui(void) {
     set_bar(s_clean_bar,  s_clean_val,  s_state.cleanliness);
 
     refresh_sprite_src();
-    if (s_status_text) lv_label_set_text(s_status_text, status_message());
+    if (s_status_text) {
+        lv_label_set_text(s_status_text, status_message());
+        if (any_stat_critical()) {
+            // Strong visual emphasis when any stat zeros out
+            lv_obj_set_style_bg_color(s_status_text, theme_color_accent(), LV_PART_MAIN);
+            lv_obj_set_style_bg_opa(s_status_text, LV_OPA_90, LV_PART_MAIN);
+            lv_obj_set_style_text_color(s_status_text, theme_color_card(), LV_PART_MAIN);
+            lv_obj_set_style_pad_hor(s_status_text, 10, LV_PART_MAIN);
+            lv_obj_set_style_pad_ver(s_status_text, 4, LV_PART_MAIN);
+            lv_obj_set_style_radius(s_status_text, 10, LV_PART_MAIN);
+        } else {
+            lv_obj_set_style_bg_opa(s_status_text, LV_OPA_TRANSP, LV_PART_MAIN);
+            lv_obj_set_style_text_color(s_status_text, theme_color_accent(), LV_PART_MAIN);
+            lv_obj_set_style_pad_hor(s_status_text, 0, LV_PART_MAIN);
+            lv_obj_set_style_pad_ver(s_status_text, 0, LV_PART_MAIN);
+        }
+    }
 }
 
 static void sprite_tick_cb(lv_timer_t* /*t*/) {
@@ -393,6 +447,7 @@ static void show_main_screen(void);
 static void wizard_show_welcome(void);
 static void wizard_show_picker(void);
 static void wizard_show_naming(void);
+static void wizard_show_bg_picker(void);
 
 void tamagotchi_show(void) {
     load_state();
@@ -469,7 +524,7 @@ static void show_main_screen(void) {
 
     lv_obj_t* bg_img = lv_image_create(pet_card);
     lv_obj_set_size(bg_img, 240, 100);
-    lv_image_set_src(bg_img, BG_PATH_DEFAULT);
+    lv_image_set_src(bg_img, full_bg_path(s_state.bg));
     lv_image_set_inner_align(bg_img, LV_IMAGE_ALIGN_BOTTOM_MID);
     lv_obj_align(bg_img, LV_ALIGN_CENTER, 0, 0);
 
@@ -748,12 +803,10 @@ static void naming_confirm_cb(lv_event_t* /*e*/) {
     if (!typed || typed[0] == '\0') typed = DEFAULT_PET_NAME;
     strncpy(s_state.name, typed, sizeof(s_state.name) - 1);
     s_state.name[sizeof(s_state.name) - 1] = '\0';
-    s_state.initialized = true;
-    update_last_unix_and_save();
 
     s_name_input = nullptr;
     nav_pop(NAV_ANIM_NONE);
-    show_main_screen();
+    wizard_show_bg_picker();
 }
 
 static void naming_ready_cb(lv_event_t* e) {
@@ -824,5 +877,149 @@ static void wizard_show_naming(void) {
     lv_keyboard_set_textarea(kb, s_name_input);
     lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_TEXT_LOWER);
 
+    nav_push(scr, NAV_ANIM_SLIDE_LEFT);
+}
+
+// ----- Background picker -----
+static int s_bg_picker_idx = 0;
+static lv_obj_t* s_bg_preview = nullptr;
+static lv_obj_t* s_bg_label = nullptr;
+static char s_bg_picker_short[24];
+
+static void bg_picker_refresh_preview(void) {
+    short_bg_for_index(s_bg_picker_idx, s_bg_picker_short, sizeof(s_bg_picker_short));
+    if (s_bg_preview) lv_image_set_src(s_bg_preview, full_bg_path(s_bg_picker_short));
+    if (s_bg_label) {
+        char buf[24];
+        if (s_bg_picker_idx < CLASSIC_BG_COUNT) {
+            snprintf(buf, sizeof(buf), "Classic %d/%d", s_bg_picker_idx + 1, CLASSIC_BG_COUNT);
+        } else {
+            snprintf(buf, sizeof(buf), "Xmas %d/%d",
+                     s_bg_picker_idx - CLASSIC_BG_COUNT + 1, XMAS_BG_COUNT);
+        }
+        lv_label_set_text(s_bg_label, buf);
+    }
+}
+
+static void bg_picker_prev_cb(lv_event_t* /*e*/) {
+    s_bg_picker_idx = (s_bg_picker_idx - 1 + TOTAL_BG_COUNT) % TOTAL_BG_COUNT;
+    bg_picker_refresh_preview();
+}
+
+static void bg_picker_next_cb(lv_event_t* /*e*/) {
+    s_bg_picker_idx = (s_bg_picker_idx + 1) % TOTAL_BG_COUNT;
+    bg_picker_refresh_preview();
+}
+
+static void bg_picker_back_cb(lv_event_t* /*e*/) {
+    s_bg_preview = s_bg_label = nullptr;
+    nav_pop(NAV_ANIM_NONE);
+    wizard_show_naming();
+}
+
+static void bg_picker_confirm_cb(lv_event_t* /*e*/) {
+    short_bg_for_index(s_bg_picker_idx, s_state.bg, sizeof(s_state.bg));
+    s_state.initialized = true;
+    update_last_unix_and_save();
+
+    s_bg_preview = s_bg_label = nullptr;
+    nav_pop(NAV_ANIM_NONE);
+    show_main_screen();
+}
+
+static void wizard_show_bg_picker(void) {
+    // Start carousel at current selection (so settings flow lands on saved bg)
+    s_bg_picker_idx = 1; // classic/02 default
+    for (int i = 0; i < TOTAL_BG_COUNT; ++i) {
+        char tmp[24];
+        short_bg_for_index(i, tmp, sizeof(tmp));
+        if (strcmp(tmp, s_state.bg) == 0) { s_bg_picker_idx = i; break; }
+    }
+
+    lv_obj_t* scr = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(scr, theme_color_bg(), LV_PART_MAIN);
+    lv_obj_set_style_pad_all(scr, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Header
+    lv_obj_t* header = lv_obj_create(scr);
+    lv_obj_set_size(header, 240, 40);
+    lv_obj_set_pos(header, 0, 0);
+    lv_obj_set_style_bg_color(header, theme_color_primary(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(header, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(header, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* back_btn = lv_button_create(header);
+    lv_obj_set_size(back_btn, 36, 28);
+    lv_obj_align(back_btn, LV_ALIGN_LEFT_MID, 4, 0);
+    lv_obj_set_style_bg_color(back_btn, theme_color_card(), LV_PART_MAIN);
+    lv_obj_set_style_radius(back_btn, 8, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(back_btn, 0, LV_PART_MAIN);
+    lv_obj_add_event_cb(back_btn, bg_picker_back_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* back_lbl = lv_label_create(back_btn);
+    lv_label_set_text(back_lbl, LV_SYMBOL_LEFT);
+    lv_obj_set_style_text_color(back_lbl, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_center(back_lbl);
+
+    lv_obj_t* title = lv_label_create(header);
+    lv_label_set_text(title, "Escolha o quarto");
+    lv_obj_set_style_text_color(title, theme_color_card(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_18, LV_PART_MAIN);
+    lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
+
+    // Preview frame (containers padded so the 180x320 bg fits nicely)
+    lv_obj_t* preview_frame = lv_obj_create(scr);
+    lv_obj_set_size(preview_frame, 200, 180);
+    lv_obj_align(preview_frame, LV_ALIGN_TOP_MID, 0, 50);
+    lv_obj_set_style_bg_color(preview_frame, theme_color_text_light(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(preview_frame, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(preview_frame, 12, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(preview_frame, 0, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(preview_frame, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(preview_frame, LV_OBJ_FLAG_SCROLLABLE);
+
+    s_bg_preview = lv_image_create(preview_frame);
+    lv_obj_set_size(s_bg_preview, 200, 180);
+    lv_image_set_inner_align(s_bg_preview, LV_IMAGE_ALIGN_CONTAIN);
+    lv_obj_center(s_bg_preview);
+
+    // Label
+    s_bg_label = lv_label_create(scr);
+    lv_obj_set_style_text_color(s_bg_label, theme_color_text(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(s_bg_label, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_align(s_bg_label, LV_ALIGN_TOP_MID, 0, 234);
+
+    // Prev / next
+    auto make_nav = [&](int x, lv_event_cb_t cb, const char* sym) {
+        lv_obj_t* b = lv_button_create(scr);
+        lv_obj_set_size(b, 50, 40);
+        lv_obj_set_pos(b, x, 260);
+        lv_obj_set_style_bg_color(b, theme_color_card(), LV_PART_MAIN);
+        lv_obj_set_style_radius(b, THEME_RADIUS_BUTTON, LV_PART_MAIN);
+        lv_obj_set_style_shadow_width(b, 0, LV_PART_MAIN);
+        lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, NULL);
+        lv_obj_t* l = lv_label_create(b);
+        lv_label_set_text(l, sym);
+        lv_obj_set_style_text_color(l, theme_color_accent(), LV_PART_MAIN);
+        lv_obj_set_style_text_font(l, &lv_font_montserrat_18, LV_PART_MAIN);
+        lv_obj_center(l);
+    };
+    make_nav(14,  bg_picker_prev_cb, LV_SYMBOL_LEFT);
+    make_nav(176, bg_picker_next_cb, LV_SYMBOL_RIGHT);
+
+    // Confirm
+    lv_obj_t* confirm = lv_button_create(scr);
+    lv_obj_set_size(confirm, 100, 40);
+    lv_obj_align(confirm, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_add_style(confirm, &theme_style_button_primary, LV_PART_MAIN);
+    lv_obj_add_event_cb(confirm, bg_picker_confirm_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* clbl = lv_label_create(confirm);
+    lv_label_set_text(clbl, "Pronto! " LV_SYMBOL_OK);
+    lv_obj_set_style_text_color(clbl, theme_color_card(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(clbl, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_center(clbl);
+
+    bg_picker_refresh_preview();
     nav_push(scr, NAV_ANIM_SLIDE_LEFT);
 }

@@ -72,11 +72,13 @@ pio run -t upload -t monitor
 - [x] Fase 5 — Memory Game (com placeholder de cores enquanto não há fotos personalizadas em `memory_pairs/`)
 - [x] Fase 6 — Pomodoro (com beep no GPIO 26)
 - [x] Fase 7 — Mood Tracker (5 humores + heatmap 7d)
-- [~] Fase 8 — Tamagotchi (core + wizard completo: pet picker + naming on-screen keyboard + reset menu; faltando background picker, achievements)
+- [x] Fase 8 — Tamagotchi (core + wizard 4 telas: pet/naming/bg, sad textbox quando stat zera, reset menu)
+- [x] Bonus — Settings app (brilho + sobre + reset pet + recalibrar touch)
+- [x] Bonus — Counter confete a cada 100 dias
 
 Legenda: `[x]` pronto · `[~]` parcial · `[ ]` não começado.
 
-Build atual: **RAM 36.9%** (120 KB/320 KB) · **Flash 44.8%** (1.41 MB/3.0 MB).
+Build atual: **RAM 37.2%** (122 KB/320 KB) · **Flash 45.2%** (1.42 MB/3.0 MB).
 
 ## O que está pronto vs. depende de hardware
 

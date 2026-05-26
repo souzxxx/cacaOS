@@ -53,6 +53,7 @@ void setup() {
 
     // 3. Display + LVGL
     display_init();
+    display_set_brightness(storage_get_brightness(255));
     lv_init();
     display_register_with_lvgl();
 
