@@ -64,15 +64,51 @@ pio run -t upload -t monitor
 
 ## Status das fases
 
-- [ ] Fase 0 — Hello World (display + touch verificados)
-- [ ] Fase 1 — Foundation (LVGL + theme + homescreen + nav)
-- [ ] Fase 2 — Network & Time (WiFi + NTP + OpenWeather)
-- [ ] Fase 3 — Galeria + Cartinha
-- [ ] Fase 4 — Contador + Open When
-- [ ] Fase 5 — Memory Game
-- [ ] Fase 6 — Pomodoro
-- [ ] Fase 7 — Mood Tracker
-- [ ] Fase 8 — Tamagotchi
+- [ ] Fase 0 — Hello World (display + touch verificados) — *aguardando hardware*
+- [x] Fase 1 — Foundation (LVGL + theme + homescreen + nav + splash)
+- [~] Fase 2 — Network & Time (WiFi/NTP/OpenWeather codificado, falta testar com placa)
+- [x] Fase 3 — Galeria + Cartinha (gallery renderiza JPEG do SD via LVGL FS)
+- [x] Fase 4 — Contador + Open When
+- [x] Fase 5 — Memory Game (com placeholder de cores enquanto não há fotos personalizadas em `memory_pairs/`)
+- [x] Fase 6 — Pomodoro (com beep no GPIO 26)
+- [x] Fase 7 — Mood Tracker (5 humores + heatmap 7d)
+- [~] Fase 8 — Tamagotchi (core: stats, decay, ações, sprite animado em 12 frames, background; faltando adoption wizard + settings menu)
+
+Legenda: `[x]` pronto · `[~]` parcial · `[ ]` não começado.
+
+Build atual: **RAM 36.9%** (120 KB/320 KB) · **Flash 44.8%** (1.41 MB/3.0 MB).
+
+## O que está pronto vs. depende de hardware
+
+**Funcionando no build (verificado por CI + build local):**
+- Compilação limpa, sem warnings críticos
+- Estrutura de UI completa: splash → homescreen → 8 apps com navegação back
+- Persistência (NVS) para humor, recorde do memory, estado do tamagotchi
+- Leitura SD para mensagens, open whens, fotos, sprites
+- LVGL FS driver registrado em `S:` apontando pra `/sd`
+- Decoders JPEG + PNG habilitados
+
+**Depende de placa pra validar:**
+- Cores corretas (pode precisar inverter `LV_COLOR_16_SWAP`)
+- Calibração precisa do touch (atual usa defaults; `touch_calibrate()` é stub)
+- WiFi conectar com SSID real
+- Beep do pomodoro audível
+- RGB LED, LDR (não usados ainda)
+
+## Próximos passos sugeridos (antes da placa)
+
+1. Editar `src/config.h` com seus valores reais (já criado a partir do example)
+2. Personalizar `sd_card/messages.json` (já tem 30 mensagens-exemplo)
+3. Preencher os `.txt` de `sd_card/open_when/` (atualmente placeholders)
+4. Instalar driver CH340 (App Store → "CH34xVCPDriver") e a extensão PlatformIO IDE no VSCode
+
+## Próximos passos sugeridos (depois da placa)
+
+1. Verificar Fase 0 (Hello World + touch)
+2. Re-implementar `touch_calibrate()` com UI de 4 pontos
+3. Implementar adoption wizard do tamagotchi (TAMAGOTCHI_SPEC.md §2.1)
+4. Settings menu (brightness, reset, sobre)
+5. Animações finas: confete no counter a cada 100 dias, fade-in no daily_card, flip nos cards do memory_game
 
 ## License
 

@@ -162,7 +162,7 @@ cacaos/
 
 **Cada fase é shippable.** Em qualquer ponto dá pra parar e apresentar — só fica com menos apps. Sugiro presentear no fim da Fase 4 e ir adicionando apps depois via OTA ou reflash.
 
-### Fase 0 — Hello World (dia 1, ~2h)
+### Fase 0 — Hello World (dia 1, ~2h) — *aguardando hardware*
 - [ ] CH340 driver instalado no Mac
 - [ ] Placa detectada em `/dev/cu.wchusbserial*`
 - [ ] Sketch básico TFT_eSPI mostra `"CacaOS 💕"` em rosa centralizado
@@ -170,66 +170,85 @@ cacaos/
 
 **Critério de aceite:** vê o texto rosa e o Serial cospe `(x=120, y=160)` ao tocar.
 
-### Fase 1 — Foundation (dia 2-3)
-- [ ] LVGL inicializado com display flush + touch read callbacks
-- [ ] `theme.cpp` aplica paleta + estilos globais (cards rounded, sombra rosa, fonte pixel)
-- [ ] Homescreen estática: relógio placeholder + grid 3x3 de ícones
-- [ ] Router (`nav.cpp`): tap em ícone abre tela do app vazia, botão back volta
-- [ ] Splash screen ao boot: logo "CacaOS" pixel art com animação fade-in
+### Fase 1 — Foundation (dia 2-3) — ✅ pronto
+- [x] LVGL inicializado com display flush + touch read callbacks
+- [x] `theme.cpp` aplica paleta + estilos globais (cards rounded, sombra rosa, fonte Montserrat)
+- [x] Homescreen estática: relógio + grid 3x3 de ícones
+- [x] Router (`nav.cpp`): tap em ícone abre tela do app, botão back volta
+- [x] Splash screen ao boot: card branco arredondado + sprite branquinha 4x + título "CacaOS"
 
-**Critério de aceite:** dá pra navegar entre todas as 8 telas vazias dos apps usando touch.
+**Critério de aceite:** dá pra navegar entre todas as 8 telas vazias dos apps usando touch — *validar com placa*.
 
-### Fase 2 — Network & Time (dia 4)
-- [ ] WiFi connect via `config.h` (SSID + senha)
-- [ ] NTP sync, timezone São Paulo (UTC-3)
-- [ ] OpenWeather (free tier `weather` endpoint), cache 30min, ícone pixel customizado por condição
-- [ ] Homescreen mostra hora real + temp + ícone do tempo
-- [ ] Reconnect automático se cair WiFi
+### Fase 2 — Network & Time (dia 4) — 🟡 código pronto, aguardando placa
+- [x] WiFi connect via `config.h` (SSID + senha) — código em `system/wifi_mgr.cpp`
+- [x] NTP sync, timezone São Paulo — código em `system/wifi_mgr.cpp`
+- [x] OpenWeather (free tier `weather` endpoint), cache 30min — código em `system/weather.cpp`
+- [x] Homescreen mostra hora real + temp + ícone WiFi
+- [x] Reconnect automático se cair WiFi
 
-**Critério de aceite:** desliga e religa, hora certa em <10s, clima aparece.
+**Critério de aceite:** desliga e religa, hora certa em <10s, clima aparece — *validar com placa + WiFi real*.
 
-### Fase 3 — Galeria + Cartinha (dia 5-7)
-- [ ] SD montado em `'S:'` via LVGL FS
-- [ ] **Gallery:** lista `/photos/*.jpg`, swipe horizontal entre fotos, autoplay toggle (5s/foto)
-- [ ] **Daily card:** lê `messages.json` do SD, seleciona uma por dia (seed = day-of-year), tela com fundo gradiente rosa + texto centralizado + emoji animado
+### Fase 3 — Galeria + Cartinha (dia 5-7) — ✅ pronto
+- [x] SD montado em `'S:'` via LVGL FS_STDIO (path `/sd`)
+- [x] **Gallery:** lista `/photos/*.jpg`, navegação prev/next, render via `lv_image_set_src`
+- [x] **Daily card:** lê `messages.json` do SD, índice = day-of-year, botão "outra" mostra próxima
+- [ ] Swipe horizontal na gallery (tem prev/next por enquanto)
+- [ ] Autoplay 5s/foto
+- [ ] Gradiente rosa no daily_card (uso cartão branco com texto centrado)
 
-**Critério de aceite:** 20 fotos no SD navegáveis sem crash, mensagem do dia muda à meia-noite.
+**Critério de aceite:** 15 fotos preparadas em `sd_card/photos/` (01..15.jpg), 30 mensagens — *validar render com placa*.
 
-### Fase 4 — Contador + Open When (dia 8-9)
-- [ ] **Counter:** data início em `config.h`, calcula dias/horas/minutos em tempo real, com confete pixel aparecendo a cada aniversário de mesversário
-- [ ] **Open When:** lista `open_when/*.txt` do SD, cada arquivo vira um "envelope" — tap abre animação de envelope abrindo e revela conteúdo
+### Fase 4 — Contador + Open When (dia 8-9) — ✅ pronto
+- [x] **Counter:** data início em `config.h`, calcula dias/horas/minutos em tempo real (refresh 30s)
+- [x] **Open When:** lista `open_when/*.txt` do SD, cada arquivo vira um envelope clicável
+- [ ] Confete pixel a cada 100 dias (visual polish)
+- [ ] Animação de abrir envelope (3 frames)
 
-**Critério de aceite:** contador atualiza vivo, envelopes abrem com animação suave.
+**Critério de aceite:** contador atualiza vivo, envelopes abrem — *validar com placa*.
 
 **👉 PONTO DE ENTREGA SUGERIDO 👈**
 Aqui o presente já é absurdo. As próximas fases dá pra empurrar depois.
 
-### Fase 5 — Memory Game (dia 10-12)
-- [ ] Asset pipeline: 8 fotos 60x60 PNG em `sd_card/memory_pairs/`
-- [ ] Grid 4x4 com pares, flip animation (rotateY 180°)
-- [ ] Contador de tentativas + cronômetro
-- [ ] Recorde salvo no NVS
-- [ ] Tela de vitória com confete + "novo recorde!" quando aplicável
+### Fase 5 — Memory Game (dia 10-12) — ✅ pronto (com placeholder)
+- [ ] Asset pipeline: 8 fotos 60x60 PNG em `sd_card/memory_pairs/` (atualmente usa 8 **cores**)
+- [x] Grid 4x4 com pares
+- [x] Contador de tentativas + cronômetro
+- [x] Recorde salvo no NVS (`memory` namespace, key `best_s`)
+- [x] Mensagem de "novo recorde!" no fim
+- [ ] Flip animation (rotateY 180°) — atualmente é reveal instantâneo
+- [ ] Tela de vitória com confete
 
-### Fase 6 — Pomodoro (dia 13-14)
-- [ ] Timer 25/5 customizável (15/3, 25/5, 50/10)
-- [ ] Bichinho pixel central com 4 frames de idle (anima a 2 FPS)
-- [ ] Estado "focada" (bichinho concentrado) / "descanso" (bichinho relaxado)
-- [ ] Beep no I2S quando termina ciclo (frequência 880Hz por 200ms)
-- [ ] Contador de pomodoros completos por sessão
+### Fase 6 — Pomodoro (dia 13-14) — ✅ pronto
+- [x] Timer 25/5 (cycles automáticos focus → break → focus...)
+- [x] Estado "focada" / "descanso" indicado no label
+- [x] Beep no GPIO 26 (`tone()`): 880Hz no fim do focus, 660Hz no fim do break
+- [x] Contador de pomodoros completos por sessão
+- [ ] Bichinho pixel central com idle animation
+- [ ] Anel de progresso visual
+- [ ] Timers customizáveis (15/3, 25/5, 50/10) — atualmente fixo
 
-### Fase 7 — Mood Tracker (dia 15-16)
-- [ ] Tela diária: 5 emojis kawaii (😊 😌 😐 😢 😡 — versões pixel art)
-- [ ] Tap salva em `moods.json` (`{"date":"2026-05-25","mood":3}`)
-- [ ] Bloqueia múltiplas entradas no mesmo dia (mas permite editar)
-- [ ] Tela "histórico": calendário do mês colorido por mood (heatmap)
+### Fase 7 — Mood Tracker (dia 15-16) — ✅ pronto
+- [x] Tela diária: 5 botões de humor (cores diferentes)
+- [x] Tap salva no NVS (`mood` namespace, key = "YYYYMMDD")
+- [x] Permite editar o humor do dia (basta tocar de novo)
+- [x] Histórico: heatmap horizontal dos últimos 7 dias
+- [ ] Histórico mensal em calendário 7x5 (atualmente só 7 dias)
+- [ ] Sprite-art emojis em vez de texto `:D / :)` etc
 
-### Fase 8 — Tamagotchi (dia 17-20)
-- [ ] Pet pixel: fome, felicidade, energia (0-100 cada) salvos no NVS
-- [ ] Stats decaem 1 ponto a cada hora real
-- [ ] 3 ações: 🍓 alimentar / 🎀 brincar / 💤 dormir, cada uma com animação
-- [ ] Sprite atlas em `tamagotchi_sprites/` (idle, eating, playing, sleeping, happy, sad)
-- [ ] Se algum stat zera, pet fica triste e textbox aparece pedindo cuidado
+### Fase 8 — Tamagotchi (dia 17-20) — 🟡 core pronto, faltando UX flows
+- [x] Stats: hunger/happiness/energy/cleanliness (0-100 cada) no NVS namespace `tama`
+- [x] Decay model: -1/h hunger, -1/h happiness, -2/h energy, -1/(2h) cleanliness
+- [x] Catch-up decay no boot (cap em 24h pra não auto-matar)
+- [x] 4 ações (feed/play/sleep/brush) com efeitos conforme TAMAGOTCHI_SPEC.md
+- [x] Sprite atlas: PNG 384x32 (12 frames) animado a 200ms/frame
+- [x] Anim escolhido pelo estado: idle / sad / sleep / happy
+- [x] Background `classic/02.png` atrás do pet
+- [ ] Adoption wizard (TAMAGOTCHI_SPEC.md §2.1, screens 1-5)
+- [ ] Settings menu (renomear, trocar pet, trocar bg, reset)
+- [ ] Pet picker com 10 variantes
+- [ ] Background picker com 20 quartos
+- [ ] Achievements
+- [ ] Pet sad textbox quando algum stat zera
 
 ---
 
