@@ -235,7 +235,7 @@ Aqui o presente já é absurdo. As próximas fases dá pra empurrar depois.
 - [ ] Histórico mensal em calendário 7x5 (atualmente só 7 dias)
 - [ ] Sprite-art emojis em vez de texto `:D / :)` etc
 
-### Fase 8 — Tamagotchi (dia 17-20) — 🟡 core pronto, faltando UX flows
+### Fase 8 — Tamagotchi (dia 17-20) — 🟡 core + wizard mínimo prontos
 - [x] Stats: hunger/happiness/energy/cleanliness (0-100 cada) no NVS namespace `tama`
 - [x] Decay model: -1/h hunger, -1/h happiness, -2/h energy, -1/(2h) cleanliness
 - [x] Catch-up decay no boot (cap em 24h pra não auto-matar)
@@ -243,11 +243,12 @@ Aqui o presente já é absurdo. As próximas fases dá pra empurrar depois.
 - [x] Sprite atlas: PNG 384x32 (12 frames) animado a 200ms/frame
 - [x] Anim escolhido pelo estado: idle / sad / sleep / happy
 - [x] Background `classic/02.png` atrás do pet
-- [ ] Adoption wizard (TAMAGOTCHI_SPEC.md §2.1, screens 1-5)
-- [ ] Settings menu (renomear, trocar pet, trocar bg, reset)
-- [ ] Pet picker com 10 variantes
+- [x] Adoption wizard mínimo (welcome + pet picker 3x3 com 9 variantes)
+- [x] Pet picker — escolha persistida no NVS (`slug`), reflete no sprite
+- [ ] Nome customizado (atualmente usa `DEFAULT_PET_NAME` do config.h — falta keyboard on-screen)
 - [ ] Background picker com 20 quartos
-- [ ] Achievements
+- [ ] Settings menu (gear icon → renomear, trocar pet/bg, reset)
+- [ ] Achievements (desbloqueia `demonic` por exemplo)
 - [ ] Pet sad textbox quando algum stat zera
 
 ---

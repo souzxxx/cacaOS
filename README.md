@@ -72,7 +72,7 @@ pio run -t upload -t monitor
 - [x] Fase 5 — Memory Game (com placeholder de cores enquanto não há fotos personalizadas em `memory_pairs/`)
 - [x] Fase 6 — Pomodoro (com beep no GPIO 26)
 - [x] Fase 7 — Mood Tracker (5 humores + heatmap 7d)
-- [~] Fase 8 — Tamagotchi (core: stats, decay, ações, sprite animado em 12 frames, background; faltando adoption wizard + settings menu)
+- [~] Fase 8 — Tamagotchi (core + adoption wizard mínimo prontos; faltando rename via keyboard, settings menu, background picker)
 
 Legenda: `[x]` pronto · `[~]` parcial · `[ ]` não começado.
 
