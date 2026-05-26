@@ -5,6 +5,8 @@
 
 #include "theme.h"
 
+#include <Arduino.h>
+
 // Palette (matches PLAN.md section 7)
 //   BG          #FFE5EC  rosa muito claro
 //   CARD        #FFFFFF
