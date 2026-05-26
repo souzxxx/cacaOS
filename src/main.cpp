@@ -63,6 +63,12 @@ void setup() {
     // 5. Theme (LVGL styles registered globally)
     theme_init();
 
+    // 5b. First-boot touch calibration. Skips if NVS already has values.
+    if (!touch_is_calibrated()) {
+        Serial.println(F("[boot] touch not calibrated — running 4-point flow"));
+        touch_calibrate();
+    }
+
     // 6. Splash while WiFi connects in background
     show_splash();
     lv_timer_handler();

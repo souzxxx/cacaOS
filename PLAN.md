@@ -245,9 +245,10 @@ Aqui o presente já é absurdo. As próximas fases dá pra empurrar depois.
 - [x] Background `classic/02.png` atrás do pet
 - [x] Adoption wizard mínimo (welcome + pet picker 3x3 com 9 variantes)
 - [x] Pet picker — escolha persistida no NVS (`slug`), reflete no sprite
+- [x] Reset button no header (gear icon) → dialog de confirmação → retriggera wizard
 - [ ] Nome customizado (atualmente usa `DEFAULT_PET_NAME` do config.h — falta keyboard on-screen)
 - [ ] Background picker com 20 quartos
-- [ ] Settings menu (gear icon → renomear, trocar pet/bg, reset)
+- [ ] Settings menu completo (gear icon expande pra renomear, trocar pet/bg)
 - [ ] Achievements (desbloqueia `demonic` por exemplo)
 - [ ] Pet sad textbox quando algum stat zera
 
@@ -437,7 +438,7 @@ pio run -t uploadfs
 | Sintoma | Causa provável | Fix |
 |---|---|---|
 | Cores invertidas (azul/vermelho trocados) | `LV_COLOR_16_SWAP` errado | Inverte no lv_conf.h |
-| Touch invertido / impreciso | Calibração XY | Roda calibration na Fase 0, salva offsets no NVS |
+| Touch invertido / impreciso | Calibração XY | Calibração automática roda no primeiro boot (`touch_calibrate()` em `system/touch.cpp`) — 4 toques nos cantos rosa |
 | Galeria trava entre fotos | JPG decode síncrono | Preload em task no core 0 |
 | Reboot ao decodificar PNG grande | Falta de heap | Diminui tamanho do sprite ou usa JPG |
 | NTP não sincroniza | DNS / firewall | Usa pool.ntp.org com fallback br.pool.ntp.org |

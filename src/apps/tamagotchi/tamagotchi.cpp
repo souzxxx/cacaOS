@@ -263,6 +263,80 @@ static void back_event_cb(lv_event_t* /*e*/) {
     nav_pop(NAV_ANIM_SLIDE_RIGHT);
 }
 
+static void confirm_reset_dialog(void);
+
+static void reset_btn_cb(lv_event_t* /*e*/) {
+    confirm_reset_dialog();
+}
+
+static void confirm_reset_yes_cb(lv_event_t* e) {
+    lv_obj_t* msgbox = (lv_obj_t*)lv_event_get_user_data(e);
+    if (msgbox) lv_obj_delete(msgbox);
+
+    s_state.initialized = false;
+    save_state();
+    // Force back to homescreen so re-entering the app triggers the wizard
+    back_event_cb(nullptr);
+}
+
+static void confirm_reset_no_cb(lv_event_t* e) {
+    lv_obj_t* msgbox = (lv_obj_t*)lv_event_get_user_data(e);
+    if (msgbox) lv_obj_delete(msgbox);
+}
+
+static void confirm_reset_dialog(void) {
+    lv_obj_t* parent = lv_screen_active();
+
+    lv_obj_t* dim = lv_obj_create(parent);
+    lv_obj_set_size(dim, 240, 320);
+    lv_obj_set_pos(dim, 0, 0);
+    lv_obj_set_style_bg_color(dim, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(dim, LV_OPA_50, LV_PART_MAIN);
+    lv_obj_set_style_border_width(dim, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(dim, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(dim, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* card = lv_obj_create(dim);
+    lv_obj_set_size(card, 200, 140);
+    lv_obj_center(card);
+    lv_obj_add_style(card, &theme_style_card, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(card, 14, LV_PART_MAIN);
+    lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* msg = lv_label_create(card);
+    lv_label_set_long_mode(msg, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(msg, 170);
+    lv_label_set_text(msg, "Resetar pet?\n(volta pra escolha de Caca)");
+    lv_obj_set_style_text_align(msg, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_color(msg, theme_color_text(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(msg, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_align(msg, LV_ALIGN_TOP_MID, 0, 0);
+
+    lv_obj_t* no_btn = lv_button_create(card);
+    lv_obj_set_size(no_btn, 70, 36);
+    lv_obj_align(no_btn, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+    lv_obj_set_style_bg_color(no_btn, theme_color_text_light(), LV_PART_MAIN);
+    lv_obj_set_style_radius(no_btn, THEME_RADIUS_BUTTON, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(no_btn, 0, LV_PART_MAIN);
+    lv_obj_add_event_cb(no_btn, confirm_reset_no_cb, LV_EVENT_CLICKED, dim);
+    lv_obj_t* no_lbl = lv_label_create(no_btn);
+    lv_label_set_text(no_lbl, "nao");
+    lv_obj_set_style_text_color(no_lbl, theme_color_text(), LV_PART_MAIN);
+    lv_obj_center(no_lbl);
+
+    lv_obj_t* yes_btn = lv_button_create(card);
+    lv_obj_set_size(yes_btn, 70, 36);
+    lv_obj_align(yes_btn, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
+    lv_obj_set_style_bg_color(yes_btn, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_set_style_radius(yes_btn, THEME_RADIUS_BUTTON, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(yes_btn, 0, LV_PART_MAIN);
+    lv_obj_add_event_cb(yes_btn, confirm_reset_yes_cb, LV_EVENT_CLICKED, dim);
+    lv_obj_t* yes_lbl = lv_label_create(yes_btn);
+    lv_label_set_text(yes_lbl, "resetar");
+    lv_obj_set_style_text_color(yes_lbl, theme_color_card(), LV_PART_MAIN);
+    lv_obj_center(yes_lbl);
+}
+
 static lv_obj_t* make_stat_row(lv_obj_t* parent, int y, const char* label_text,
                                uint32_t color_hex, lv_obj_t** out_bar, lv_obj_t** out_val) {
     lv_obj_t* row = lv_obj_create(parent);
@@ -362,6 +436,19 @@ static void show_main_screen(void) {
     lv_obj_set_style_text_color(s_name_label, theme_color_card(), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_name_label, &lv_font_montserrat_18, LV_PART_MAIN);
     lv_obj_align(s_name_label, LV_ALIGN_CENTER, 0, 0);
+
+    // Reset/settings button (right side of header)
+    lv_obj_t* reset_btn = lv_button_create(header);
+    lv_obj_set_size(reset_btn, 36, 28);
+    lv_obj_align(reset_btn, LV_ALIGN_RIGHT_MID, -4, 0);
+    lv_obj_set_style_bg_color(reset_btn, theme_color_card(), LV_PART_MAIN);
+    lv_obj_set_style_radius(reset_btn, 8, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(reset_btn, 0, LV_PART_MAIN);
+    lv_obj_add_event_cb(reset_btn, reset_btn_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* gear = lv_label_create(reset_btn);
+    lv_label_set_text(gear, LV_SYMBOL_SETTINGS);
+    lv_obj_set_style_text_color(gear, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_center(gear);
 
     // Stat bars
     make_stat_row(scr, 48,  "fome",   0xFF8FAB, &s_hunger_bar, &s_hunger_val);

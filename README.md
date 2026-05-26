@@ -90,9 +90,9 @@ Build atual: **RAM 36.9%** (120 KB/320 KB) · **Flash 44.8%** (1.41 MB/3.0 MB).
 
 **Depende de placa pra validar:**
 - Cores corretas (pode precisar inverter `LV_COLOR_16_SWAP`)
-- Calibração precisa do touch (atual usa defaults; `touch_calibrate()` é stub)
+- Touch calibration roda automática no 1º boot (4 toques nos cantos rosa)
 - WiFi conectar com SSID real
-- Beep do pomodoro audível
+- Beep do pomodoro audível no GPIO 26
 - RGB LED, LDR (não usados ainda)
 
 ## Próximos passos sugeridos (antes da placa)
@@ -104,11 +104,13 @@ Build atual: **RAM 36.9%** (120 KB/320 KB) · **Flash 44.8%** (1.41 MB/3.0 MB).
 
 ## Próximos passos sugeridos (depois da placa)
 
-1. Verificar Fase 0 (Hello World + touch)
-2. Re-implementar `touch_calibrate()` com UI de 4 pontos
-3. Implementar adoption wizard do tamagotchi (TAMAGOTCHI_SPEC.md §2.1)
+1. Verificar Fase 0 (Hello World + touch funcionando)
+2. Confirmar que a touch calibration ficou precisa (cantos rosa no 1º boot)
+3. Verificar render real das fotos JPEG + sprites PNG via LVGL FS
 4. Settings menu (brightness, reset, sobre)
-5. Animações finas: confete no counter a cada 100 dias, fade-in no daily_card, flip nos cards do memory_game
+5. Background picker pro tamagotchi
+6. On-screen keyboard pro tamagotchi rename
+7. Animações finas: confete no counter a cada 100 dias, fade-in no daily_card, flip nos cards do memory_game
 
 ## License
 
