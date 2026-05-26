@@ -95,7 +95,8 @@ Build atual: **RAM 37.2%** (122 KB/320 KB) · **Flash 45.2%** (1.42 MB/3.0 MB).
 - Touch calibration roda automática no 1º boot (4 toques nos cantos rosa)
 - WiFi conectar com SSID real
 - Beep do pomodoro audível no GPIO 26
-- RGB LED, LDR (não usados ainda)
+- RGB LED feedback (rosa boot / verde focus pomodoro / vermelho break pomodoro / cor por mood do tamagotchi) — GPIOs 4/16/17
+- LDR (GPIO 34) ainda não usado
 
 ## Próximos passos sugeridos (antes da placa)
 

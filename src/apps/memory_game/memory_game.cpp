@@ -81,6 +81,28 @@ static void shuffle_cards(void) {
     }
 }
 
+static void card_scale_anim_cb(void* var, int32_t v) {
+    lv_obj_t* obj = (lv_obj_t*)var;
+    lv_obj_set_style_transform_scale_x(obj, v, LV_PART_MAIN);
+    lv_obj_set_style_transform_scale_y(obj, v, LV_PART_MAIN);
+}
+
+static void card_burst(lv_obj_t* obj) {
+    if (!obj) return;
+    lv_obj_set_style_transform_pivot_x(obj, 25, LV_PART_MAIN);
+    lv_obj_set_style_transform_pivot_y(obj, 25, LV_PART_MAIN);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, obj);
+    lv_anim_set_values(&a, 256, 304);   // 1.0x -> 1.19x
+    lv_anim_set_duration(&a, 130);
+    lv_anim_set_playback_duration(&a, 130);
+    lv_anim_set_repeat_count(&a, 1);
+    lv_anim_set_exec_cb(&a, card_scale_anim_cb);
+    lv_anim_start(&a);
+}
+
 static void paint_card(int idx) {
     Card& c = s_cards[idx];
     if (!c.obj) return;
@@ -170,6 +192,7 @@ static void card_clicked_cb(lv_event_t* e) {
 
     c.revealed = true;
     paint_card(idx);
+    card_burst(c.obj);
 
     if (s_first_idx < 0) {
         s_first_idx = idx;

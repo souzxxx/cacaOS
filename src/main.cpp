@@ -24,6 +24,7 @@
 #include "system/storage.h"
 #include "system/wifi_mgr.h"
 #include "system/weather.h"
+#include "system/rgb_led.h"
 #include "ui/theme.h"
 #include "ui/nav.h"
 #include "ui/homescreen.h"
@@ -42,6 +43,10 @@ void setup() {
     Serial.println(F("============================================="));
     Serial.println(F("  CacaOS booting..."));
     Serial.println(F("============================================="));
+
+    // 0. RGB LED (used as boot indicator + per-app feedback)
+    rgb_led_init();
+    rgb_led_set(255, 143, 171);  // boot in pink (matches theme primary)
 
     // 1. NVS (non-volatile prefs)
     storage_init();
@@ -82,6 +87,7 @@ void setup() {
     homescreen_show();
 
     s_last_tick_ms = millis();
+    rgb_led_off();   // boot complete; apps can claim the LED
     Serial.println(F("[boot] CacaOS ready."));
 }
 

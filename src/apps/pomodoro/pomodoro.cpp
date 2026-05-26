@@ -8,8 +8,11 @@
 #include <Arduino.h>
 #include <lvgl.h>
 
+#include <Preferences.h>
+
 #include "../../ui/theme.h"
 #include "../../ui/nav.h"
+#include "../../system/rgb_led.h"
 
 enum PomState { POMO_IDLE, POMO_FOCUS, POMO_BREAK, POMO_PAUSED_FOCUS, POMO_PAUSED_BREAK };
 
@@ -31,6 +34,51 @@ static lv_obj_t* s_time_label = nullptr;
 static lv_obj_t* s_count_label = nullptr;
 static lv_obj_t* s_play_btn = nullptr;
 static lv_obj_t* s_play_lbl = nullptr;
+static lv_obj_t* s_pet_img = nullptr;
+static lv_timer_t* s_pet_anim_timer = nullptr;
+static int        s_pet_frame = 0;
+static char       s_pet_slug[16] = "white";
+static char       s_pet_sprite_path[96];
+
+static constexpr int PET_FRAME_W = 32;
+static constexpr int PET_FRAME_H = 32;
+static constexpr int PET_FRAME_COUNT = 12;
+
+static void load_pet_slug(void) {
+    Preferences p;
+    if (!p.begin("tama", true)) return;
+    String slug = p.getString("slug", "white");
+    strncpy(s_pet_slug, slug.c_str(), sizeof(s_pet_slug) - 1);
+    s_pet_slug[sizeof(s_pet_slug) - 1] = '\0';
+    p.end();
+}
+
+static const char* pet_anim_for_state(void) {
+    switch (s_state) {
+        case POMO_FOCUS:        return "rest";     // pet "concentrates"
+        case POMO_BREAK:        return "happy";    // pet rejoices
+        case POMO_PAUSED_FOCUS:
+        case POMO_PAUSED_BREAK: return "idle";
+        case POMO_IDLE:
+        default:                return "idle";
+    }
+}
+
+static void refresh_pet_sprite(void) {
+    if (!s_pet_img) return;
+    snprintf(s_pet_sprite_path, sizeof(s_pet_sprite_path),
+             "S:/tamagotchi_sprites/cacaos_pet_assets/pets/%s/%s.png",
+             s_pet_slug, pet_anim_for_state());
+    lv_image_set_src(s_pet_img, s_pet_sprite_path);
+    s_pet_frame = 0;
+    lv_image_set_offset_x(s_pet_img, 0);
+}
+
+static void pet_anim_tick_cb(lv_timer_t* /*t*/) {
+    if (!s_pet_img) return;
+    s_pet_frame = (s_pet_frame + 1) % PET_FRAME_COUNT;
+    lv_image_set_offset_x(s_pet_img, -(s_pet_frame * PET_FRAME_W));
+}
 
 static void update_time_label(void) {
     if (!s_time_label) return;
@@ -67,11 +115,24 @@ static void update_count_label(void) {
     lv_label_set_text(s_count_label, buf);
 }
 
+static void update_led(void) {
+    switch (s_state) {
+        case POMO_FOCUS:        rgb_led_set(120, 230, 140); break;   // green
+        case POMO_BREAK:        rgb_led_set(250, 120, 100); break;   // warm red
+        case POMO_PAUSED_FOCUS:
+        case POMO_PAUSED_BREAK: rgb_led_set(60, 60, 60); break;       // dim white (paused)
+        case POMO_IDLE:
+        default:                rgb_led_off(); break;
+    }
+}
+
 static void refresh_all(void) {
     update_state_label();
     update_time_label();
     update_play_label();
     update_count_label();
+    update_led();
+    refresh_pet_sprite();
 }
 
 static void tick_cb(lv_timer_t* /*t*/) {
@@ -130,11 +191,11 @@ static void skip_cb(lv_event_t* /*e*/) {
 }
 
 static void back_event_cb(lv_event_t* /*e*/) {
-    if (s_tick) {
-        lv_timer_delete(s_tick);
-        s_tick = nullptr;
-    }
+    if (s_tick)           { lv_timer_delete(s_tick);            s_tick = nullptr; }
+    if (s_pet_anim_timer) { lv_timer_delete(s_pet_anim_timer);  s_pet_anim_timer = nullptr; }
+    rgb_led_off();
     s_state_label = s_time_label = s_count_label = s_play_btn = s_play_lbl = nullptr;
+    s_pet_img = nullptr;
     nav_pop(NAV_ANIM_SLIDE_RIGHT);
 }
 
@@ -181,10 +242,10 @@ void pomodoro_show(void) {
     lv_obj_set_style_text_font(s_state_label, &lv_font_montserrat_18, LV_PART_MAIN);
     lv_obj_align(s_state_label, LV_ALIGN_TOP_MID, 0, 56);
 
-    // Big timer card
+    // Big timer card (shrunk to make room for pet sprite)
     lv_obj_t* time_card = lv_obj_create(scr);
-    lv_obj_set_size(time_card, 200, 110);
-    lv_obj_align(time_card, LV_ALIGN_TOP_MID, 0, 86);
+    lv_obj_set_size(time_card, 200, 76);
+    lv_obj_align(time_card, LV_ALIGN_TOP_MID, 0, 80);
     lv_obj_add_style(time_card, &theme_style_card, LV_PART_MAIN);
     lv_obj_clear_flag(time_card, LV_OBJ_FLAG_SCROLLABLE);
 
@@ -193,19 +254,27 @@ void pomodoro_show(void) {
     lv_obj_set_style_text_font(s_time_label, &lv_font_montserrat_24, LV_PART_MAIN);
     lv_obj_center(s_time_label);
 
+    // Pet sprite (animated, mirrors tamagotchi selection)
+    load_pet_slug();
+    s_pet_img = lv_image_create(scr);
+    lv_obj_set_size(s_pet_img, PET_FRAME_W, PET_FRAME_H);
+    lv_image_set_scale(s_pet_img, 768);   // 3x = 96x96
+    lv_image_set_inner_align(s_pet_img, LV_IMAGE_ALIGN_TOP_LEFT);
+    lv_obj_align(s_pet_img, LV_ALIGN_TOP_MID, 0, 168);
+
     // Count label
     s_count_label = lv_label_create(scr);
     lv_obj_set_style_text_color(s_count_label, theme_color_text(), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_count_label, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_align(s_count_label, LV_ALIGN_TOP_MID, 0, 204);
+    lv_obj_align(s_count_label, LV_ALIGN_TOP_MID, 0, 230);
 
     // Button row: reset / play-pause / skip
     constexpr int BTN_W = 56;
-    constexpr int BTN_H = 44;
+    constexpr int BTN_H = 40;
     constexpr int GAP = 14;
     constexpr int row_w = BTN_W * 3 + GAP * 2;
     int sx = (240 - row_w) / 2;
-    int sy = 240;
+    int sy = 268;
 
     auto make_btn = [&](int x, lv_event_cb_t cb, const char* sym, bool primary) -> lv_obj_t* {
         lv_obj_t* b = lv_button_create(scr);
@@ -232,6 +301,7 @@ void pomodoro_show(void) {
 
     refresh_all();
     s_tick = lv_timer_create(tick_cb, 1000, NULL);
+    s_pet_anim_timer = lv_timer_create(pet_anim_tick_cb, 200, NULL);
 
     nav_push(scr, NAV_ANIM_SLIDE_LEFT);
 }

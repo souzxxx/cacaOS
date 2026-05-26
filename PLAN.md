@@ -191,7 +191,7 @@ cacaos/
 ### Fase 3 — Galeria + Cartinha (dia 5-7) — ✅ pronto
 - [x] SD montado em `'S:'` via LVGL FS_STDIO (path `/sd`)
 - [x] **Gallery:** lista `/photos/*.jpg`, navegação prev/next, render via `lv_image_set_src`
-- [x] **Daily card:** lê `messages.json` do SD, índice = day-of-year, botão "outra" mostra próxima
+- [x] **Daily card:** lê `messages.json` do SD, índice = day-of-year, botão "outra" mostra próxima, heart accent pulsante (scale 1.0→1.25x ping-pong)
 - [ ] Swipe horizontal na gallery (tem prev/next por enquanto)
 - [ ] Autoplay 5s/foto
 - [ ] Gradiente rosa no daily_card (uso cartão branco com texto centrado)
@@ -215,7 +215,7 @@ Aqui o presente já é absurdo. As próximas fases dá pra empurrar depois.
 - [x] Contador de tentativas + cronômetro
 - [x] Recorde salvo no NVS (`memory` namespace, key `best_s`)
 - [x] Mensagem de "novo recorde!" no fim
-- [ ] Flip animation (rotateY 180°) — atualmente é reveal instantâneo
+- [x] Burst animation no reveal (scale 1.0→1.19x→1.0 em 130ms cada lado)
 - [ ] Tela de vitória com confete
 
 ### Fase 6 — Pomodoro (dia 13-14) — ✅ pronto
@@ -223,7 +223,8 @@ Aqui o presente já é absurdo. As próximas fases dá pra empurrar depois.
 - [x] Estado "focada" / "descanso" indicado no label
 - [x] Beep no GPIO 26 (`tone()`): 880Hz no fim do focus, 660Hz no fim do break
 - [x] Contador de pomodoros completos por sessão
-- [ ] Bichinho pixel central com idle animation
+- [x] Bichinho pixel central com sprite animado (12 frames/200ms), espelha o slug do tamagotchi
+- [x] RGB LED feedback: verde no focus, vermelho no break, dim no pause
 - [ ] Anel de progresso visual
 - [ ] Timers customizáveis (15/3, 25/5, 50/10) — atualmente fixo
 
@@ -234,6 +235,12 @@ Aqui o presente já é absurdo. As próximas fases dá pra empurrar depois.
 - [x] Histórico: heatmap horizontal dos últimos 7 dias
 - [ ] Histórico mensal em calendário 7x5 (atualmente só 7 dias)
 - [ ] Sprite-art emojis em vez de texto `:D / :)` etc
+
+### Bonus — RGB LED feedback — ✅ pronto
+- [x] Módulo `system/rgb_led.cpp` via LEDC PWM (canais 1/2/3, active LOW)
+- [x] Boot indicator: rosa durante o splash, off quando termina
+- [x] Pomodoro: verde no focus, vermelho no break, dim no pause
+- [x] Tamagotchi: verde feliz, rosa default, amarelo alerta, vermelho crítico
 
 ### Bonus — Settings app — ✅ pronto
 - [x] 9º slot do homescreen vira "Ajustes"

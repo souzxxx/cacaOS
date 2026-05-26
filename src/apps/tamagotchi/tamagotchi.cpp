@@ -28,6 +28,7 @@
 #include "../../config.h"
 #include "../../ui/theme.h"
 #include "../../ui/nav.h"
+#include "../../system/rgb_led.h"
 
 static constexpr uint8_t STAT_MAX = 100;
 static constexpr uint32_t MAX_DECAY_HOURS = 24;
@@ -247,6 +248,20 @@ static void refresh_ui(void) {
     set_bar(s_clean_bar,  s_clean_val,  s_state.cleanliness);
 
     refresh_sprite_src();
+
+    // Mood-based LED: green (healthy), yellow (low), red (critical)
+    if (any_stat_critical()) {
+        rgb_led_set(220, 80, 80);
+    } else {
+        uint8_t lowest = s_state.hunger;
+        if (s_state.happiness   < lowest) lowest = s_state.happiness;
+        if (s_state.energy      < lowest) lowest = s_state.energy;
+        if (s_state.cleanliness < lowest) lowest = s_state.cleanliness;
+        if (lowest < 25)      rgb_led_set(220, 180, 60);   // warning yellow
+        else if (lowest < 60) rgb_led_set(255, 143, 171);  // theme pink
+        else                  rgb_led_set(120, 230, 140);  // happy green
+    }
+
     if (s_status_text) {
         lv_label_set_text(s_status_text, status_message());
         if (any_stat_critical()) {
@@ -311,6 +326,7 @@ static void back_event_cb(lv_event_t* /*e*/) {
     update_last_unix_and_save();
     if (s_decay_timer) { lv_timer_delete(s_decay_timer); s_decay_timer = nullptr; }
     if (s_anim_timer)  { lv_timer_delete(s_anim_timer);  s_anim_timer  = nullptr; }
+    rgb_led_off();
     s_name_label = s_hunger_bar = s_happy_bar = s_energy_bar = s_clean_bar = nullptr;
     s_hunger_val = s_happy_val = s_energy_val = s_clean_val = nullptr;
     s_pet_img = s_status_text = nullptr;
