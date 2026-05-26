@@ -45,7 +45,8 @@
  * LOGGING
  *================*/
 #define LV_USE_LOG       0          /* 1 to enable, eats flash */
-#define LV_LOG_LEVEL     LV_LOG_LEVEL_WARN
+/* LV_LOG_LEVEL left undefined here; lv_conf_internal.h picks a sane default
+ * based on LV_USE_LOG. Defining both was triggering a "redefined" warning. */
 
 /*=================
  * ASSERTS

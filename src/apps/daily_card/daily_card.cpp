@@ -1,30 +1,93 @@
 /**
  * @file daily_card.cpp
- * @brief Cartinha app — Daily message rotation. Reads /messages.json from SD.
- *
- * STATUS: SKELETON. Implements only the back button and a "Em breve" message.
- * Fill in based on PLAN.md spec when implementing this phase.
+ * @brief Card-of-the-day from /messages.json on SD. Index = day-of-year.
  */
 
 #include "daily_card.h"
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
+#include <SD.h>
 #include <lvgl.h>
+#include <time.h>
 
 #include "../../ui/theme.h"
 #include "../../ui/nav.h"
+#include "../../system/sdcard.h"
+
+static constexpr size_t MAX_MESSAGES = 40;
+static constexpr size_t MAX_MESSAGE_LEN = 120;
+
+static char  s_messages[MAX_MESSAGES][MAX_MESSAGE_LEN];
+static size_t s_message_count = 0;
+static int    s_current_index = 0;
+static lv_obj_t* s_text_label = nullptr;
+
+static const char* FALLBACK_MESSAGE =
+    "(coloca o cartao SD com /messages.json pra ver uma mensagem do dia)";
+
+static void load_messages(void) {
+    s_message_count = 0;
+    if (!sdcard_is_mounted()) return;
+
+    File f = SD.open("/messages.json", FILE_READ);
+    if (!f) return;
+
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, f);
+    f.close();
+    if (err) {
+        Serial.printf("[daily_card] json parse error: %s\n", err.c_str());
+        return;
+    }
+
+    JsonArray arr = doc["messages"].as<JsonArray>();
+    for (JsonVariant v : arr) {
+        if (s_message_count >= MAX_MESSAGES) break;
+        const char* s = v.as<const char*>();
+        if (!s) continue;
+        strncpy(s_messages[s_message_count], s, MAX_MESSAGE_LEN - 1);
+        s_messages[s_message_count][MAX_MESSAGE_LEN - 1] = '\0';
+        s_message_count++;
+    }
+    Serial.printf("[daily_card] loaded %u messages\n", (unsigned)s_message_count);
+}
+
+static int day_of_year_now(void) {
+    time_t now = time(nullptr);
+    struct tm tm_local;
+    localtime_r(&now, &tm_local);
+    return tm_local.tm_yday;
+}
+
+static void show_index(int idx) {
+    if (!s_text_label) return;
+    if (s_message_count == 0) {
+        lv_label_set_text(s_text_label, FALLBACK_MESSAGE);
+        return;
+    }
+    s_current_index = ((idx % (int)s_message_count) + (int)s_message_count) % (int)s_message_count;
+    lv_label_set_text(s_text_label, s_messages[s_current_index]);
+}
 
 static void back_event_cb(lv_event_t* /*e*/) {
+    s_text_label = nullptr;
     nav_pop(NAV_ANIM_SLIDE_RIGHT);
 }
 
+static void next_event_cb(lv_event_t* /*e*/) {
+    show_index(s_current_index + 1);
+}
+
 void daily_card_show(void) {
+    load_messages();
+
     lv_obj_t* scr = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr, theme_color_bg(), LV_PART_MAIN);
     lv_obj_set_style_pad_all(scr, 0, LV_PART_MAIN);
     lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Header with back button
+    // Header
     lv_obj_t* header = lv_obj_create(scr);
     lv_obj_set_size(header, 240, 40);
     lv_obj_set_pos(header, 0, 0);
@@ -47,16 +110,41 @@ void daily_card_show(void) {
     lv_obj_center(back_lbl);
 
     lv_obj_t* title = lv_label_create(header);
-    lv_label_set_text(title, "Cartinha");
+    lv_label_set_text(title, "Cartinha do dia");
     lv_obj_set_style_text_color(title, theme_color_card(), LV_PART_MAIN);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_18, LV_PART_MAIN);
     lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
 
-    // Body — "coming soon" placeholder
-    lv_obj_t* body = lv_label_create(scr);
-    lv_label_set_text(body, "Em breve...");
-    lv_obj_add_style(body, &theme_style_title, LV_PART_MAIN);
-    lv_obj_center(body);
+    // Card with message
+    lv_obj_t* card = lv_obj_create(scr);
+    lv_obj_set_size(card, 210, 200);
+    lv_obj_align(card, LV_ALIGN_TOP_MID, 0, 55);
+    lv_obj_add_style(card, &theme_style_card, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(card, 14, LV_PART_MAIN);
+    lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+
+    s_text_label = lv_label_create(card);
+    lv_label_set_long_mode(s_text_label, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(s_text_label, 180);
+    lv_obj_set_style_text_align(s_text_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_color(s_text_label, theme_color_text(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(s_text_label, &lv_font_montserrat_18, LV_PART_MAIN);
+    lv_obj_center(s_text_label);
+
+    // "Outra" button
+    lv_obj_t* next_btn = lv_button_create(scr);
+    lv_obj_set_size(next_btn, 120, 36);
+    lv_obj_align(next_btn, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_add_style(next_btn, &theme_style_button_primary, LV_PART_MAIN);
+    lv_obj_add_event_cb(next_btn, next_event_cb, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t* next_lbl = lv_label_create(next_btn);
+    lv_label_set_text(next_lbl, "outra " LV_SYMBOL_REFRESH);
+    lv_obj_set_style_text_color(next_lbl, theme_color_card(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(next_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_center(next_lbl);
+
+    show_index(day_of_year_now());
 
     nav_push(scr, NAV_ANIM_SLIDE_LEFT);
 }
