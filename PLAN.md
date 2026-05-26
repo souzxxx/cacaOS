@@ -202,7 +202,7 @@ cacaos/
 - [x] **Counter:** data início em `config.h`, calcula dias/horas/minutos em tempo real (refresh 30s)
 - [x] **Open When:** lista `open_when/*.txt` do SD, cada arquivo vira um envelope clicável
 - [x] Confete pixel a cada 100 dias (overlay com "X dias!" + auto-dismiss em 4s)
-- [ ] Animação de abrir envelope (3 frames)
+- [x] Animação de abrir envelope (fade-in 320ms no body card após slide)
 
 **Critério de aceite:** contador atualiza vivo, envelopes abrem — *validar com placa*.
 
@@ -268,7 +268,7 @@ Aqui o presente já é absurdo. As próximas fases dá pra empurrar depois.
 - [x] Reset button no header (gear icon) → menu com opções (trocar pet/nome/quarto sem perder stats, ou resetar tudo)
 - [x] Pet sad textbox: quando algum stat zera, status_text vira balão accent
 - [x] Settings menu expandido (trocar pet/bg/nome sem resetar stats — via flag s_edit_target)
-- [ ] Achievements (desbloqueia `demonic` por exemplo)
+- [x] Achievements: feed/play/sleep/brush + complete_set meta — toast overlay 2.5s
 
 ---
 

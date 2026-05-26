@@ -154,6 +154,10 @@ static void letter_event_cb(lv_event_t* e) {
     if (entry) show_letter(entry);
 }
 
+static void letter_fade_in_cb(void* var, int32_t v) {
+    lv_obj_set_style_opa((lv_obj_t*)var, (lv_opa_t)v, LV_PART_MAIN);
+}
+
 static void show_letter(const Entry* entry) {
     load_body(entry->path);
 
@@ -177,7 +181,19 @@ static void show_letter(const Entry* entry) {
     lv_obj_set_style_text_color(body_lbl, theme_color_text(), LV_PART_MAIN);
     lv_obj_set_style_text_font(body_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
 
+    // Envelope-open feel: fade in the body card after the screen slides in
+    lv_obj_set_style_opa(card, 0, LV_PART_MAIN);
+
     nav_push(scr, NAV_ANIM_SLIDE_LEFT);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, card);
+    lv_anim_set_values(&a, 0, 255);
+    lv_anim_set_duration(&a, 320);
+    lv_anim_set_delay(&a, 80);
+    lv_anim_set_exec_cb(&a, letter_fade_in_cb);
+    lv_anim_start(&a);
 }
 
 void open_when_show(void) {

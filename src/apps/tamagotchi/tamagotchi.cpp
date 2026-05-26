@@ -93,6 +93,77 @@ static void wizard_show_picker(void);
 static void wizard_show_naming(void);
 static void wizard_show_bg_picker(void);
 
+// ---- Achievements ----
+static bool ach_check(const char* slug) {
+    Preferences p;
+    if (!p.begin("tama", true)) return false;
+    char key[16];
+    snprintf(key, sizeof(key), "ach_%s", slug);
+    bool earned = p.getBool(key, false);
+    p.end();
+    return earned;
+}
+
+static void ach_award(const char* slug) {
+    Preferences p;
+    if (!p.begin("tama", false)) return;
+    char key[16];
+    snprintf(key, sizeof(key), "ach_%s", slug);
+    p.putBool(key, true);
+    p.end();
+}
+
+static void toast_auto_dismiss_cb(lv_timer_t* t) {
+    lv_obj_t* toast = (lv_obj_t*)lv_timer_get_user_data(t);
+    if (toast) lv_obj_delete(toast);
+    lv_timer_delete(t);
+}
+
+static void show_toast(const char* text) {
+    lv_obj_t* parent = lv_screen_active();
+    if (!parent) return;
+
+    lv_obj_t* toast = lv_obj_create(parent);
+    lv_obj_set_size(toast, 200, 40);
+    lv_obj_align(toast, LV_ALIGN_TOP_MID, 0, 50);
+    lv_obj_set_style_bg_color(toast, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_set_style_radius(toast, 12, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(toast, 8, LV_PART_MAIN);
+    lv_obj_set_style_border_width(toast, 0, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(toast, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(toast, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* lbl = lv_label_create(toast);
+    lv_label_set_text(lbl, text);
+    lv_obj_set_style_text_color(lbl, theme_color_card(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_center(lbl);
+
+    lv_timer_t* t = lv_timer_create(toast_auto_dismiss_cb, 2500, toast);
+    lv_timer_set_repeat_count(t, 1);
+}
+
+static bool ach_all_basic_earned(void) {
+    return ach_check("feed") && ach_check("play") && ach_check("sleep") && ach_check("brush");
+}
+
+static void ach_trigger(const char* slug, const char* label) {
+    if (ach_check(slug)) return;
+    ach_award(slug);
+    show_toast(label);
+    // After awarding, check for the "complete set" meta-achievement
+    if (ach_all_basic_earned() && !ach_check("complete_set")) {
+        ach_award("complete_set");
+        // Slight delay before second toast so they don't overlap
+        // (cheap approach: just queue a follow-up via timer)
+        lv_timer_t* delayed = lv_timer_create([](lv_timer_t* t) {
+            show_toast("cuidadora exemplar!");
+            lv_timer_delete(t);
+        }, 2700, nullptr);
+        lv_timer_set_repeat_count(delayed, 1);
+    }
+}
+
 static lv_obj_t* s_name_label = nullptr;
 static lv_obj_t* s_hunger_bar = nullptr;
 static lv_obj_t* s_happy_bar  = nullptr;
@@ -303,6 +374,7 @@ static void feed_cb(lv_event_t* /*e*/) {
     s_state.cleanliness = clamp_stat((int)s_state.cleanliness - 2);
     update_last_unix_and_save();
     refresh_ui();
+    ach_trigger("feed", "primeira refeicao!");
 }
 
 static void play_cb(lv_event_t* /*e*/) {
@@ -310,6 +382,7 @@ static void play_cb(lv_event_t* /*e*/) {
     s_state.energy    = clamp_stat((int)s_state.energy - 10);
     update_last_unix_and_save();
     refresh_ui();
+    ach_trigger("play", "primeira brincadeira!");
 }
 
 static void sleep_cb(lv_event_t* /*e*/) {
@@ -318,6 +391,7 @@ static void sleep_cb(lv_event_t* /*e*/) {
     s_state.energy = STAT_MAX;
     update_last_unix_and_save();
     refresh_ui();
+    ach_trigger("sleep", "primeira soneca!");
 }
 
 static void brush_cb(lv_event_t* /*e*/) {
@@ -325,6 +399,7 @@ static void brush_cb(lv_event_t* /*e*/) {
     s_state.happiness   = clamp_stat((int)s_state.happiness + 5);
     update_last_unix_and_save();
     refresh_ui();
+    ach_trigger("brush", "primeira escovada!");
 }
 
 static void decay_tick_cb(lv_timer_t* /*t*/) {
