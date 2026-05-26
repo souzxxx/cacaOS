@@ -78,7 +78,7 @@ pio run -t upload -t monitor
 
 Legenda: `[x]` pronto · `[~]` parcial · `[ ]` não começado.
 
-Build atual: **RAM 37.2%** (122 KB/320 KB) · **Flash 45.2%** (1.42 MB/3.0 MB).
+Build atual: **RAM 37.3%** (122 KB/320 KB) · **Flash 45.5%** (1.43 MB/3.0 MB).
 
 ## O que está pronto vs. depende de hardware
 
@@ -96,7 +96,7 @@ Build atual: **RAM 37.2%** (122 KB/320 KB) · **Flash 45.2%** (1.42 MB/3.0 MB).
 - WiFi conectar com SSID real
 - Beep do pomodoro audível no GPIO 26
 - RGB LED feedback (rosa boot / verde focus pomodoro / vermelho break pomodoro / cor por mood do tamagotchi) — GPIOs 4/16/17
-- LDR (GPIO 34) ainda não usado
+- LDR auto-dim no GPIO 34 (escurece tela em ambiente escuro até 40% do user_brightness)
 
 ## Próximos passos sugeridos (antes da placa)
 

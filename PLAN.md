@@ -216,7 +216,7 @@ Aqui o presente já é absurdo. As próximas fases dá pra empurrar depois.
 - [x] Recorde salvo no NVS (`memory` namespace, key `best_s`)
 - [x] Mensagem de "novo recorde!" no fim
 - [x] Burst animation no reveal (scale 1.0→1.19x→1.0 em 130ms cada lado)
-- [ ] Tela de vitória com confete
+- [x] Tela de vitória com card celebration + "jogar de novo" + "voltar" (recorde destacado)
 
 ### Fase 6 — Pomodoro (dia 13-14) — ✅ pronto
 - [x] Timer 25/5 (cycles automáticos focus → break → focus...)
@@ -232,9 +232,13 @@ Aqui o presente já é absurdo. As próximas fases dá pra empurrar depois.
 - [x] Tela diária: 5 botões de humor (cores diferentes)
 - [x] Tap salva no NVS (`mood` namespace, key = "YYYYMMDD")
 - [x] Permite editar o humor do dia (basta tocar de novo)
-- [x] Histórico: heatmap horizontal dos últimos 7 dias
-- [ ] Histórico mensal em calendário 7x5 (atualmente só 7 dias)
+- [x] Histórico: heatmap 7x5 dos últimos 35 dias (hoje destacado com borda accent)
 - [ ] Sprite-art emojis em vez de texto `:D / :)` etc
+
+### Bonus — LDR auto-dim — ✅ pronto
+- [x] `system/ldr.cpp` lê GPIO 34 a cada 500ms (EMA filtro)
+- [x] Brilho re-aplicado a cada 3s: `user_brightness * (0.4 + 0.6 * lux_normalizado)`
+- [x] Floor de 16/255 garante que nunca apaga totalmente
 
 ### Bonus — RGB LED feedback — ✅ pronto
 - [x] Módulo `system/rgb_led.cpp` via LEDC PWM (canais 1/2/3, active LOW)

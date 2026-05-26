@@ -25,6 +25,7 @@
 #include "system/wifi_mgr.h"
 #include "system/weather.h"
 #include "system/rgb_led.h"
+#include "system/ldr.h"
 #include "ui/theme.h"
 #include "ui/nav.h"
 #include "ui/homescreen.h"
@@ -59,6 +60,7 @@ void setup() {
     // 3. Display + LVGL
     display_init();
     display_set_brightness(storage_get_brightness(255));
+    ldr_init();
     lv_init();
     display_register_with_lvgl();
 
@@ -103,6 +105,7 @@ void loop() {
 
     // Background services (non-blocking polling)
     wifi_mgr_loop();
+    ldr_loop();
 
     if (wifi_mgr_is_connected()) {
         if (now - s_last_weather_ms > WEATHER_REFRESH_INTERVAL_MS || s_last_weather_ms == 0) {

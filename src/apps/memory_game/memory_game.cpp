@@ -165,11 +165,15 @@ static void hide_pair_cb(lv_timer_t* t) {
     s_hide_timer = nullptr;
 }
 
+static void show_victory_overlay(uint16_t time_s, uint16_t best_s, bool new_record);
+static void restart_game(void);
+
 static void finish_game(void) {
     s_finished = true;
-    uint16_t best = load_best_time();
     uint16_t cur  = (uint16_t)((millis() - s_start_ms) / 1000);
-    if (best == 0 || cur < best) {
+    uint16_t prev_best = load_best_time();
+    bool new_record = (prev_best == 0 || cur < prev_best);
+    if (new_record) {
         save_best_time(cur);
     } else {
         Preferences p;
@@ -179,6 +183,7 @@ static void finish_game(void) {
         }
     }
     refresh_status();
+    show_victory_overlay(cur, new_record ? cur : prev_best, new_record);
 }
 
 static void card_clicked_cb(lv_event_t* e) {
@@ -317,4 +322,110 @@ void memory_game_show(void) {
     s_clock_timer = lv_timer_create(clock_tick_cb, 1000, NULL);
 
     nav_push(scr, NAV_ANIM_SLIDE_LEFT);
+}
+
+// ============================================================
+// Victory overlay
+// ============================================================
+
+static void restart_game(void) {
+    shuffle_cards();
+    s_first_idx = s_second_idx = -1;
+    s_attempts = 0;
+    s_matched_pairs = 0;
+    s_start_ms = millis();
+    s_finished = false;
+    if (s_hide_timer) { lv_timer_delete(s_hide_timer); s_hide_timer = nullptr; }
+    for (int i = 0; i < CARD_COUNT; ++i) {
+        paint_card(i);
+        if (s_cards[i].obj) {
+            lv_obj_set_style_transform_scale_x(s_cards[i].obj, 256, LV_PART_MAIN);
+            lv_obj_set_style_transform_scale_y(s_cards[i].obj, 256, LV_PART_MAIN);
+        }
+    }
+    refresh_status();
+    update_clock();
+}
+
+static void victory_play_again_cb(lv_event_t* e) {
+    lv_obj_t* overlay = (lv_obj_t*)lv_event_get_user_data(e);
+    if (overlay) lv_obj_delete(overlay);
+    restart_game();
+}
+
+static void victory_back_cb(lv_event_t* e) {
+    lv_obj_t* overlay = (lv_obj_t*)lv_event_get_user_data(e);
+    if (overlay) lv_obj_delete(overlay);
+    back_event_cb(nullptr);
+}
+
+static void show_victory_overlay(uint16_t time_s, uint16_t best_s, bool new_record) {
+    lv_obj_t* parent = lv_screen_active();
+    if (!parent) return;
+
+    lv_obj_t* dim = lv_obj_create(parent);
+    lv_obj_set_size(dim, 240, 320);
+    lv_obj_set_pos(dim, 0, 0);
+    lv_obj_set_style_bg_color(dim, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(dim, LV_OPA_60, LV_PART_MAIN);
+    lv_obj_set_style_border_width(dim, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(dim, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(dim, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* card = lv_obj_create(dim);
+    lv_obj_set_size(card, 210, 200);
+    lv_obj_center(card);
+    lv_obj_add_style(card, &theme_style_card, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(card, 16, LV_PART_MAIN);
+    lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* title = lv_label_create(card);
+    lv_label_set_text(title, new_record ? "novo recorde!" : "venceu!");
+    lv_obj_set_style_text_color(title, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, LV_PART_MAIN);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 0);
+
+    lv_obj_t* stats = lv_label_create(card);
+    lv_label_set_long_mode(stats, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(stats, 178);
+    char buf[64];
+    if (new_record) {
+        snprintf(buf, sizeof(buf), "%us em %d tentativas", (unsigned)time_s, s_attempts);
+    } else {
+        snprintf(buf, sizeof(buf), "%us em %d tentativas\nrecorde: %us",
+                 (unsigned)time_s, s_attempts, (unsigned)best_s);
+    }
+    lv_label_set_text(stats, buf);
+    lv_obj_set_style_text_align(stats, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_color(stats, theme_color_text(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(stats, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_align(stats, LV_ALIGN_CENTER, 0, 4);
+
+    lv_obj_t* again = lv_button_create(card);
+    lv_obj_set_size(again, 178, 36);
+    lv_obj_align(again, LV_ALIGN_BOTTOM_MID, 0, -38);
+    lv_obj_set_style_bg_color(again, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_set_style_radius(again, THEME_RADIUS_BUTTON, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(again, 0, LV_PART_MAIN);
+    lv_obj_add_event_cb(again, victory_play_again_cb, LV_EVENT_CLICKED, dim);
+    lv_obj_t* again_lbl = lv_label_create(again);
+    lv_label_set_text(again_lbl, "jogar de novo " LV_SYMBOL_REFRESH);
+    lv_obj_set_style_text_color(again_lbl, theme_color_card(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(again_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_center(again_lbl);
+
+    lv_obj_t* back = lv_button_create(card);
+    lv_obj_set_size(back, 178, 32);
+    lv_obj_align(back, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_bg_color(back, theme_color_card(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(back, 1, LV_PART_MAIN);
+    lv_obj_set_style_border_color(back, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_set_style_radius(back, THEME_RADIUS_BUTTON, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(back, 0, LV_PART_MAIN);
+    lv_obj_add_event_cb(back, victory_back_cb, LV_EVENT_CLICKED, dim);
+    lv_obj_t* back_lbl = lv_label_create(back);
+    lv_label_set_text(back_lbl, "voltar");
+    lv_obj_set_style_text_color(back_lbl, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(back_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_center(back_lbl);
 }

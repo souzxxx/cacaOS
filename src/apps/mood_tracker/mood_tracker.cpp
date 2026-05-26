@@ -101,30 +101,40 @@ static void back_event_cb(lv_event_t* /*e*/) {
 }
 
 static void make_heatmap_cells(lv_obj_t* parent) {
-    constexpr int CELL = 26;
-    constexpr int GAP = 4;
-    constexpr int DAYS = 7;
+    // 7 cols x 5 rows = 35 days. Today is bottom-right; oldest at top-left.
+    constexpr int COLS = 7;
+    constexpr int ROWS = 5;
+    constexpr int CELL = 24;
+    constexpr int GAP  = 4;
 
-    for (int i = 0; i < DAYS; ++i) {
-        int days_back = (DAYS - 1) - i;
-        char key[12];
-        key_for_offset(key, sizeof(key), days_back);
-        uint8_t m = load_mood(key);
+    for (int row = 0; row < ROWS; ++row) {
+        for (int col = 0; col < COLS; ++col) {
+            int days_back = ((ROWS - 1) * COLS + (COLS - 1)) - (row * COLS + col);
+            char key[12];
+            key_for_offset(key, sizeof(key), days_back);
+            uint8_t m = load_mood(key);
 
-        lv_obj_t* cell = lv_obj_create(parent);
-        lv_obj_set_size(cell, CELL, CELL);
-        lv_obj_set_pos(cell, i * (CELL + GAP), 0);
-        lv_obj_set_style_radius(cell, 6, LV_PART_MAIN);
-        lv_obj_set_style_border_width(cell, 0, LV_PART_MAIN);
-        lv_obj_set_style_shadow_width(cell, 0, LV_PART_MAIN);
-        lv_obj_set_style_pad_all(cell, 0, LV_PART_MAIN);
-        lv_obj_clear_flag(cell, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_t* cell = lv_obj_create(parent);
+            lv_obj_set_size(cell, CELL, CELL);
+            lv_obj_set_pos(cell, col * (CELL + GAP), row * (CELL + GAP));
+            lv_obj_set_style_radius(cell, 5, LV_PART_MAIN);
+            lv_obj_set_style_border_width(cell, 0, LV_PART_MAIN);
+            lv_obj_set_style_shadow_width(cell, 0, LV_PART_MAIN);
+            lv_obj_set_style_pad_all(cell, 0, LV_PART_MAIN);
+            lv_obj_clear_flag(cell, LV_OBJ_FLAG_SCROLLABLE);
 
-        if (m >= 1 && m <= 5) {
-            lv_obj_set_style_bg_color(cell, lv_color_hex(MOOD_COLOR_HEX[m - 1]), LV_PART_MAIN);
-        } else {
-            lv_obj_set_style_bg_color(cell, theme_color_text_light(), LV_PART_MAIN);
-            lv_obj_set_style_bg_opa(cell, LV_OPA_30, LV_PART_MAIN);
+            if (m >= 1 && m <= 5) {
+                lv_obj_set_style_bg_color(cell, lv_color_hex(MOOD_COLOR_HEX[m - 1]), LV_PART_MAIN);
+            } else {
+                lv_obj_set_style_bg_color(cell, theme_color_text_light(), LV_PART_MAIN);
+                lv_obj_set_style_bg_opa(cell, LV_OPA_30, LV_PART_MAIN);
+            }
+
+            // Subtle outline on today's cell
+            if (days_back == 0) {
+                lv_obj_set_style_border_width(cell, 2, LV_PART_MAIN);
+                lv_obj_set_style_border_color(cell, theme_color_accent(), LV_PART_MAIN);
+            }
         }
     }
 }
@@ -203,29 +213,20 @@ void mood_tracker_show(void) {
 
     // History label
     lv_obj_t* hist_label = lv_label_create(scr);
-    lv_label_set_text(hist_label, "ultimos 7 dias");
+    lv_label_set_text(hist_label, "ultimos 35 dias");
     lv_obj_set_style_text_color(hist_label, theme_color_text(), LV_PART_MAIN);
     lv_obj_set_style_text_font(hist_label, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_align(hist_label, LV_ALIGN_TOP_MID, 0, 170);
+    lv_obj_align(hist_label, LV_ALIGN_TOP_MID, 0, 158);
 
-    // Heatmap row container
+    // Heatmap container — 7 cols x 5 rows = 192 wide, 136 tall
     s_heatmap_row = lv_obj_create(scr);
-    lv_obj_set_size(s_heatmap_row, 240, 30);
-    lv_obj_align(s_heatmap_row, LV_ALIGN_TOP_MID, 0, 200);
+    lv_obj_set_size(s_heatmap_row, 192, 136);
+    lv_obj_align(s_heatmap_row, LV_ALIGN_TOP_MID, 0, 180);
     lv_obj_set_style_bg_opa(s_heatmap_row, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(s_heatmap_row, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(s_heatmap_row, 0, LV_PART_MAIN);
     lv_obj_clear_flag(s_heatmap_row, LV_OBJ_FLAG_SCROLLABLE);
-
-    // Center the 7 cells (each 26 wide, 4 gap = 26*7 + 4*6 = 206)
-    lv_obj_t* inner = lv_obj_create(s_heatmap_row);
-    lv_obj_set_size(inner, 206, 26);
-    lv_obj_align(inner, LV_ALIGN_TOP_MID, 0, 0);
-    lv_obj_set_style_bg_opa(inner, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_border_width(inner, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(inner, 0, LV_PART_MAIN);
-    lv_obj_clear_flag(inner, LV_OBJ_FLAG_SCROLLABLE);
-    make_heatmap_cells(inner);
+    make_heatmap_cells(s_heatmap_row);
 
     nav_push(scr, NAV_ANIM_SLIDE_LEFT);
 }
