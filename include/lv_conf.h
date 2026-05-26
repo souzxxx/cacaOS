@@ -23,7 +23,7 @@
 #define LV_USE_STDLIB_STRING   LV_STDLIB_BUILTIN
 #define LV_USE_STDLIB_SPRINTF  LV_STDLIB_BUILTIN
 
-#define LV_MEM_SIZE            (48U * 1024U)
+#define LV_MEM_SIZE            (32U * 1024U)
 #define LV_MEM_POOL_INCLUDE    <stdlib.h>
 
 /*====================

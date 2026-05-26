@@ -15,10 +15,9 @@ static TFT_eSPI s_tft = TFT_eSPI();
 // LVGL display object
 static lv_display_t* s_lvgl_display = nullptr;
 
-// Double buffer for LVGL — sized to 1/10 of screen.
-// 240 * 32 = 7680 pixels * 2 bytes (RGB565) = 15360 bytes per buffer.
-// We use two buffers for DMA-style ping-pong updates.
-static constexpr uint32_t LVGL_BUF_LINES = 40;
+// Double buffer for LVGL — sized to ~1/16 of screen to fit in DRAM
+// alongside WiFi stack + LVGL heap. 240 * 20 = 4800 pixels * 2 bytes = 9600 B per buffer.
+static constexpr uint32_t LVGL_BUF_LINES = 20;
 static constexpr uint32_t LVGL_BUF_SIZE  = 240 * LVGL_BUF_LINES;
 
 static lv_color_t s_buf_a[LVGL_BUF_SIZE];
