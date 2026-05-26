@@ -1,0 +1,44 @@
+name: PlatformIO Build
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build for ESP32 CYD
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache PlatformIO + pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio-${{ hashFiles('platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Create dummy config.h for build
+        run: |
+          cp src/config.example.h src/config.h
+          # CI build only — real values stay in secrets
+
+      - name: Build
+        run: pio run -e cyd
+
+      - name: Show binary size
+        run: pio run -e cyd --target size

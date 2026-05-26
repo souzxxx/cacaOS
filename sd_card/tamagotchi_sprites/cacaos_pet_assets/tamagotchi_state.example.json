@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "first_boot": true,
+  "pet_slug": null,
+  "pet_name": null,
+  "background": null,
+  "adopted_at": null,
+  "stats": {
+    "hunger": 80,
+    "happiness": 80,
+    "energy": 80,
+    "cleanliness": 80
+  },
+  "last_update_unix": 0,
+  "achievements": [],
+  "total_care_days": 0,
+  "consecutive_care_days": 0
+}

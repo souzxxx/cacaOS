@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "default": "classic/02.png",
+  "themes": {
+    "classic": {
+      "name": "Clássico",
+      "count": 20
+    },
+    "xmas": {
+      "name": "Natal",
+      "count": 5,
+      "seasonal": true,
+      "available_months": [
+        11,
+        12,
+        1
+      ]
+    }
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "default": "white",
+  "pets": [
+    {
+      "slug": "white",
+      "display_name": "Branquinha",
+      "color_hex": "#FFFFFF",
+      "default": true
+    },
+    {
+      "slug": "fantasy",
+      "display_name": "Fantasia",
+      "color_hex": "#A78BCC"
+    },
+    {
+      "slug": "lightbrown",
+      "display_name": "Marrom Claro",
+      "color_hex": "#C4A878"
+    },
+    {
+      "slug": "grey",
+      "display_name": "Cinzinha",
+      "color_hex": "#9CA3AF"
+    },
+    {
+      "slug": "brown2color",
+      "display_name": "Bicolor",
+      "color_hex": "#8B6F47"
+    },
+    {
+      "slug": "brown",
+      "display_name": "Marronzinha",
+      "color_hex": "#8B5A2B"
+    },
+    {
+      "slug": "brownwhite",
+      "display_name": "Brownie",
+      "color_hex": "#A0826D"
+    },
+    {
+      "slug": "blackwhite",
+      "display_name": "Pretinha",
+      "color_hex": "#2B2B2B"
+    },
+    {
+      "slug": "black",
+      "display_name": "Sombra",
+      "color_hex": "#1A1A1A"
+    },
+    {
+      "slug": "demonic",
+      "display_name": "Diabinha",
+      "color_hex": "#8B0000",
+      "secret": true,
+      "unlock_hint": "Cuide do pet por 7 dias seguidos"
+    }
+  ],
+  "animations": [
+    "idle.png",
+    "sleep.png",
+    "happy.png",
+    "rest.png",
+    "play.png",
+    "run.png",
+    "eat.png",
+    "scratch.png",
+    "sad.png",
+    "sad_run.png",
+    "ko.png"
+  ],
+  "animation_frame_size": 32,
+  "animation_frame_count": 12
+}

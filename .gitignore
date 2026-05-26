@@ -1,0 +1,42 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.clang_complete
+.gcc-flags.json
+compile_commands.json
+
+# Editor / IDE
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+.vscode/ipch/
+.zed/private.json
+*.swp
+*.swo
+*~
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets — never commit
+src/config.h
+secrets.json
+
+# Build artifacts
+build/
+*.o
+*.bin
+*.elf
+*.map
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local notes
+NOTES.md
+todo.md

@@ -1,0 +1,18 @@
+---
+BasedOnStyle: LLVM
+IndentWidth: 2
+TabWidth: 2
+UseTab: Never
+ColumnLimit: 100
+PointerAlignment: Left
+DerivePointerAlignment: false
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: false
+SpaceBeforeParens: ControlStatements
+IncludeBlocks: Regroup
+SortIncludes: true
+AlignTrailingComments: true
+AlignConsecutiveDeclarations: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SpaceAfterCStyleCast: false
