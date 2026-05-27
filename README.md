@@ -51,23 +51,6 @@ pio run
 pio run -t upload -t monitor
 ```
 
-## Simular sem hardware (Wokwi)
-
-O repo tem `wokwi.toml` + `diagram.json` configurados pro CYD. Pra rodar:
-
-1. Instala a extensão **Wokwi for VS Code** no VSCode
-   - https://marketplace.visualstudio.com/items?itemName=Wokwi.wokwi-vscode
-   - Faz login (free) na primeira vez
-2. Builda o firmware uma vez localmente:
-   ```bash
-   pio run -e cyd
-   ```
-3. No VSCode: `F1` → `Wokwi: Start Simulator`
-4. Aparece uma janela com a placa virtual: tela 240x320, touch via mouse, microSD vazio
-5. A homescreen carrega; navegação, wizard do tamagotchi, settings, mood — tudo testável
-
-**O que NÃO funciona sem upload de SD:** gallery (sem fotos), daily_card (mostra fallback), open_when (vazio), sprites do tamagotchi (paths não resolvem). O resto degrada gracioso. Pra carregar conteúdo do SD virtual, é preciso empacotar `sd_card/` como imagem FAT — não trivial; mais fácil esperar a placa real.
-
 ## Pinout (ESP32-2432S028R)
 
 | Função  | GPIO |
