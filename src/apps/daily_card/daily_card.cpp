@@ -15,8 +15,8 @@
 #include "../../ui/nav.h"
 #include "../../system/sdcard.h"
 
-static constexpr size_t MAX_MESSAGES = 40;
-static constexpr size_t MAX_MESSAGE_LEN = 120;
+static constexpr size_t MAX_MESSAGES = 56;
+static constexpr size_t MAX_MESSAGE_LEN = 96;
 
 static char  s_messages[MAX_MESSAGES][MAX_MESSAGE_LEN];
 static size_t s_message_count = 0;
