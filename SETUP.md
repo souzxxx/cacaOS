@@ -267,6 +267,69 @@ Esperado: download de toolchain + libs na primeira vez, depois "SUCCESS" no fim.
 
 ---
 
+## 8b. Simulador no Mac (sem placa)
+
+Pra testar a UI no Mac antes da placa chegar — janela SDL 240×320 que roda o
+boot completo, splash, homescreen e todas as apps. Lê do folder local
+`sd_card/` como se fosse o cartão físico, então tudo que você adicionar lá
+aparece também no sim.
+
+### Pré-requisitos do sim
+
+```bash
+brew install sdl2
+```
+
+(O resto — toolchain, PlatformIO — você já tem dos passos anteriores.)
+
+### Rodar
+
+```bash
+# build + executa (abre janela SDL)
+pio run -e sim -t exec
+
+# só build
+pio run -e sim
+.pio/build/sim/program     # roda separado
+
+# Ctrl+C no terminal fecha a janela limpinho
+```
+
+### O que o sim cobre vs não cobre
+
+✅ **Cobre:**
+- Toda a UI LVGL renderizada em 240×320 nativo
+- Touch via mouse (clique e arrasta)
+- Persistência (tamagotchi, mood, settings) em `~/.cacaos_sim_prefs.json`
+- Conteúdo do SD (fotos, mensagens, cartinhas) do folder `sd_card/`
+- Daily card, gallery, open_when, memory_game, counter, pomodoro, settings,
+  tamagotchi, mood_tracker
+
+❌ **Não cobre — só na placa:**
+- Cores byte-swapped (`LV_COLOR_16_SWAP`) — bugs de R↔B só aparecem lá
+- Calibração de touch (raw → tela)
+- Timing real de JPG decode (~500ms na placa, instantâneo no Mac)
+- WiFi + OpenWeather real (sim usa weather mockado: 23°C, parcialmente nublado)
+- Brilho via PWM (LDR + backlight são no-ops no sim)
+- Som do piezo (pomodoro chime é silencioso)
+- Boot time real, consumo de RAM real
+
+### Trocar conteúdo no sim
+
+O sim lê de `./sd_card/` relativo ao cwd. Override com env var:
+
+```bash
+CACAOS_SD_ROOT=/tmp/teste pio run -e sim -t exec
+```
+
+### Limpar estado persistido do sim
+
+```bash
+rm ~/.cacaos_sim_prefs.json
+```
+
+---
+
 ## 9. Setup adicional quando a placa chegar
 
 ### Driver CH340 funcionando?

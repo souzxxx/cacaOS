@@ -13,7 +13,12 @@
    COLOR SETTINGS
  *====================*/
 #define LV_COLOR_DEPTH       16
-#define LV_COLOR_16_SWAP     1
+#ifdef CACAOS_SIM
+  /* SDL native backend doesn't want byte-swapped RGB565. */
+  #define LV_COLOR_16_SWAP     0
+#else
+  #define LV_COLOR_16_SWAP     1
+#endif
 #define LV_COLOR_SCREEN_TRANSP 1
 
 /*=========================
@@ -120,7 +125,11 @@
  *================*/
 #define LV_USE_FS_STDIO        1
 #define LV_FS_STDIO_LETTER     'S'
-#define LV_FS_STDIO_PATH       "/sd"   /* ESP32 Arduino SD library mounts here */
+#ifdef CACAOS_SIM
+  #define LV_FS_STDIO_PATH     "./sd_card"   /* host filesystem mirror */
+#else
+  #define LV_FS_STDIO_PATH     "/sd"          /* ESP32 Arduino SD library mounts here */
+#endif
 #define LV_FS_STDIO_CACHE_SIZE 0
 
 #define LV_USE_FS_POSIX        0
@@ -167,5 +176,19 @@
 #define LV_USE_DEMO_BENCHMARK 0
 #define LV_USE_DEMO_STRESS 0
 #define LV_USE_DEMO_MUSIC 0
+
+/*==================
+ * SIMULATOR-ONLY: SDL display + input
+ *================*/
+#ifdef CACAOS_SIM
+  #define LV_USE_SDL              1
+  #define LV_SDL_INCLUDE_PATH     <SDL2/SDL.h>
+  #define LV_SDL_RENDER_MODE      LV_DISPLAY_RENDER_MODE_DIRECT
+  #define LV_SDL_BUF_COUNT        1
+  #define LV_SDL_FULLSCREEN       0
+  #define LV_SDL_MOUSEWHEEL_MODE  LV_SDL_MOUSEWHEEL_MODE_ENCODER
+  #define LV_USE_LINUX_FBDEV      0
+  #define LV_USE_NUTTX            0
+#endif
 
 #endif /* LV_CONF_H */
