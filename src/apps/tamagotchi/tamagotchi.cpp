@@ -178,11 +178,14 @@ static lv_obj_t* s_status_text = nullptr;
 static lv_timer_t* s_decay_timer = nullptr;
 static lv_timer_t* s_anim_timer  = nullptr;
 static int  s_anim_frame = 0;
+static int  s_anim_frame_count = 12;   // recomputed each time the src changes
 static char s_sprite_path[96];
 
 static constexpr int SPRITE_FRAME_W = 32;
 static constexpr int SPRITE_FRAME_H = 32;
-static constexpr int SPRITE_FRAME_COUNT = 12;
+static constexpr int SPRITE_DISPLAY_SCALE = 768;     // 3x — keeps pixel art crisp
+static constexpr int SPRITE_DISPLAY_W = SPRITE_FRAME_W * SPRITE_DISPLAY_SCALE / 256;
+static constexpr int SPRITE_DISPLAY_H = SPRITE_FRAME_H * SPRITE_DISPLAY_SCALE / 256;
 static constexpr const char* BG_DEFAULT_SHORT = "classic/02.png";
 
 static uint8_t clamp_stat(int v) {
@@ -273,7 +276,8 @@ static void catch_up_decay(void) {
 static const char* current_animation(void) {
     if (s_state.energy < 20) return "sleep";
     if (s_state.hunger < 20 || s_state.happiness < 20) return "sad";
-    if (s_state.happiness >= 80 && s_state.hunger >= 80) return "happy";
+    // idle in all other states: it's a stationary breathing loop. happy.png
+    // is a hop/celebration that reads as "running" at small sizes.
     return "idle";
 }
 
@@ -309,8 +313,12 @@ static void refresh_sprite_src(void) {
     if (!s_pet_img) return;
     sprite_path_for(s_state.slug, current_animation());
     lv_image_set_src(s_pet_img, s_sprite_path);
+    // Frame count varies per animation: idle=12, sad=8, sleep=6, etc.
+    int32_t src_w = lv_image_get_src_width(s_pet_img);
+    s_anim_frame_count = (src_w > 0) ? (src_w / SPRITE_FRAME_W) : 1;
+    if (s_anim_frame_count < 1) s_anim_frame_count = 1;
     s_anim_frame = 0;
-    lv_image_set_offset_x(s_pet_img, 0);
+    lv_obj_set_x(s_pet_img, 0);
 }
 
 static void refresh_ui(void) {
@@ -365,8 +373,12 @@ static void refresh_ui(void) {
 
 static void sprite_tick_cb(lv_timer_t* /*t*/) {
     if (!s_pet_img) return;
-    s_anim_frame = (s_anim_frame + 1) % SPRITE_FRAME_COUNT;
-    lv_image_set_offset_x(s_pet_img, -(s_anim_frame * SPRITE_FRAME_W));
+    s_anim_frame = (s_anim_frame + 1) % s_anim_frame_count;
+    // Move the whole image left by one displayed-frame width. The parent
+    // container clips to a single frame, so we slide the spritesheet
+    // through that window. lv_image_set_offset_x doesn't reliably clip
+    // when scale is active (it uses ext_draw_size and renders past obj).
+    lv_obj_set_x(s_pet_img, -s_anim_frame * SPRITE_DISPLAY_W);
 }
 
 static void feed_cb(lv_event_t* /*e*/) {
@@ -748,11 +760,23 @@ static void show_main_screen(void) {
     lv_image_set_inner_align(bg_img, LV_IMAGE_ALIGN_BOTTOM_MID);
     lv_obj_align(bg_img, LV_ALIGN_CENTER, 0, 0);
 
-    s_pet_img = lv_image_create(pet_card);
-    lv_obj_set_size(s_pet_img, SPRITE_FRAME_W, SPRITE_FRAME_H);
-    lv_image_set_scale(s_pet_img, 768);   // 3x = 96x96 visible
-    lv_image_set_inner_align(s_pet_img, LV_IMAGE_ALIGN_TOP_LEFT);
-    lv_obj_align(s_pet_img, LV_ALIGN_CENTER, 0, 0);
+    // Clipping container: parent clips children to its content area, so the
+    // scaled spritesheet (rendered as 1152x96 for a 12-frame sheet) only
+    // shows one frame at a time. The image obj sits inside at x=0 and is
+    // shifted left via lv_obj_set_x during animation.
+    lv_obj_t* sprite_box = lv_obj_create(pet_card);
+    lv_obj_set_size(sprite_box, SPRITE_DISPLAY_W, SPRITE_DISPLAY_H);
+    lv_obj_set_style_bg_opa(sprite_box, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(sprite_box, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(sprite_box, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(sprite_box, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(sprite_box, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_center(sprite_box);
+
+    s_pet_img = lv_image_create(sprite_box);
+    lv_image_set_pivot(s_pet_img, 0, 0);    // scale anchored at top-left
+    lv_image_set_scale(s_pet_img, SPRITE_DISPLAY_SCALE);
+    lv_obj_set_pos(s_pet_img, 0, 0);
 
     s_status_text = lv_label_create(scr);
     lv_obj_set_style_text_color(s_status_text, theme_color_accent(), LV_PART_MAIN);
@@ -837,12 +861,24 @@ static void wizard_show_welcome(void) {
     lv_obj_set_style_pad_all(card, 16, LV_PART_MAIN);
     lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_obj_t* bunny = lv_image_create(card);
+    // Static welcome bunny: clip container + image at frame 0 (no animation).
+    constexpr int WELCOME_SCALE = 1024;  // 4x
+    constexpr int WELCOME_W = SPRITE_FRAME_W * WELCOME_SCALE / 256;
+    constexpr int WELCOME_H = SPRITE_FRAME_H * WELCOME_SCALE / 256;
+    lv_obj_t* bunny_box = lv_obj_create(card);
+    lv_obj_set_size(bunny_box, WELCOME_W, WELCOME_H);
+    lv_obj_set_style_bg_opa(bunny_box, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(bunny_box, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(bunny_box, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(bunny_box, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(bunny_box, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_align(bunny_box, LV_ALIGN_TOP_MID, 0, 0);
+
+    lv_obj_t* bunny = lv_image_create(bunny_box);
     lv_image_set_src(bunny, "S:/tamagotchi_sprites/cacaos_pet_assets/pets/white/idle.png");
-    lv_obj_set_size(bunny, SPRITE_FRAME_W, SPRITE_FRAME_H);
-    lv_image_set_scale(bunny, 1024);
-    lv_image_set_inner_align(bunny, LV_IMAGE_ALIGN_TOP_LEFT);
-    lv_obj_align(bunny, LV_ALIGN_TOP_MID, 0, 0);
+    lv_image_set_pivot(bunny, 0, 0);
+    lv_image_set_scale(bunny, WELCOME_SCALE);
+    lv_obj_set_pos(bunny, 0, 0);
 
     lv_obj_t* msg = lv_label_create(card);
     lv_label_set_long_mode(msg, LV_LABEL_LONG_WRAP);
@@ -946,7 +982,7 @@ static void wizard_show_picker(void) {
     lv_obj_center(back_lbl);
 
     lv_obj_t* title = lv_label_create(header);
-    lv_label_set_text(title, "Escolha sua Caca");
+    lv_label_set_text(title, "Sua Caca");
     lv_obj_set_style_text_color(title, theme_color_card(), LV_PART_MAIN);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_18, LV_PART_MAIN);
     lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
@@ -974,15 +1010,28 @@ static void wizard_show_picker(void) {
         lv_obj_set_user_data(card, (void*)(intptr_t)i);
         lv_obj_add_event_cb(card, picker_card_cb, LV_EVENT_CLICKED, NULL);
 
-        lv_obj_t* sprite = lv_image_create(card);
+        // Clip container so the 1.5x-scaled spritesheet only shows frame 0.
+        constexpr int PICKER_SCALE = 384;  // 1.5x
+        constexpr int PICKER_W = SPRITE_FRAME_W * PICKER_SCALE / 256;
+        constexpr int PICKER_H = SPRITE_FRAME_H * PICKER_SCALE / 256;
+        lv_obj_t* sprite_box = lv_obj_create(card);
+        lv_obj_set_size(sprite_box, PICKER_W, PICKER_H);
+        lv_obj_set_style_bg_opa(sprite_box, LV_OPA_TRANSP, LV_PART_MAIN);
+        lv_obj_set_style_border_width(sprite_box, 0, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(sprite_box, 0, LV_PART_MAIN);
+        lv_obj_set_style_radius(sprite_box, 0, LV_PART_MAIN);
+        lv_obj_clear_flag(sprite_box, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_clear_flag(sprite_box, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_center(sprite_box);
+
+        lv_obj_t* sprite = lv_image_create(sprite_box);
         snprintf(s_picker_paths[i], sizeof(s_picker_paths[i]),
                  "S:/tamagotchi_sprites/cacaos_pet_assets/pets/%s/idle.png",
                  PET_SLUGS[i]);
         lv_image_set_src(sprite, s_picker_paths[i]);
-        lv_obj_set_size(sprite, SPRITE_FRAME_W, SPRITE_FRAME_H);
-        lv_image_set_scale(sprite, 384);  // 1.5x = 48x48
-        lv_image_set_inner_align(sprite, LV_IMAGE_ALIGN_TOP_LEFT);
-        lv_obj_center(sprite);
+        lv_image_set_pivot(sprite, 0, 0);
+        lv_image_set_scale(sprite, PICKER_SCALE);
+        lv_obj_set_pos(sprite, 0, 0);
 
         s_picker_cards[i] = card;
     }
@@ -1083,15 +1132,26 @@ static void wizard_show_naming(void) {
     lv_obj_set_style_text_font(title, &lv_font_montserrat_18, LV_PART_MAIN);
     lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
 
-    // Selected pet preview (small sprite frame 0)
-    lv_obj_t* preview = lv_image_create(scr);
+    // Selected pet preview (clip container + frame 0 at 2x)
+    constexpr int NAMING_SCALE = 512;  // 2x
+    constexpr int NAMING_W = SPRITE_FRAME_W * NAMING_SCALE / 256;
+    constexpr int NAMING_H = SPRITE_FRAME_H * NAMING_SCALE / 256;
+    lv_obj_t* preview_box = lv_obj_create(scr);
+    lv_obj_set_size(preview_box, NAMING_W, NAMING_H);
+    lv_obj_set_style_bg_opa(preview_box, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(preview_box, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(preview_box, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(preview_box, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(preview_box, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_align(preview_box, LV_ALIGN_TOP_MID, 0, 50);
+
+    lv_obj_t* preview = lv_image_create(preview_box);
     snprintf(s_name_sprite_path, sizeof(s_name_sprite_path),
              "S:/tamagotchi_sprites/cacaos_pet_assets/pets/%s/idle.png", s_state.slug);
     lv_image_set_src(preview, s_name_sprite_path);
-    lv_obj_set_size(preview, SPRITE_FRAME_W, SPRITE_FRAME_H);
-    lv_image_set_scale(preview, 512);   // 2x
-    lv_image_set_inner_align(preview, LV_IMAGE_ALIGN_TOP_LEFT);
-    lv_obj_align(preview, LV_ALIGN_TOP_MID, 0, 50);
+    lv_image_set_pivot(preview, 0, 0);
+    lv_image_set_scale(preview, NAMING_SCALE);
+    lv_obj_set_pos(preview, 0, 0);
 
     // Textarea with default name
     s_name_input = lv_textarea_create(scr);
@@ -1202,7 +1262,7 @@ static void wizard_show_bg_picker(void) {
     lv_obj_center(back_lbl);
 
     lv_obj_t* title = lv_label_create(header);
-    lv_label_set_text(title, "Escolha o quarto");
+    lv_label_set_text(title, "Quartinho");
     lv_obj_set_style_text_color(title, theme_color_card(), LV_PART_MAIN);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_18, LV_PART_MAIN);
     lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
