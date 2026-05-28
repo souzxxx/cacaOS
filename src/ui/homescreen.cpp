@@ -11,6 +11,7 @@
 #include "homescreen.h"
 #include "theme.h"
 #include "nav.h"
+#include "pixel_icons.h"
 
 #include <Arduino.h>
 #include <lvgl.h>
@@ -37,23 +38,26 @@ static lv_obj_t* s_wifi_indicator = nullptr;
 static lv_timer_t* s_refresh_timer = nullptr;
 
 struct AppEntry {
-    const char* label;
-    const char* symbol;            // LVGL symbol or emoji string
-    uint32_t    icon_hex;          // 0xRRGGBB tint for the glyph
-    void (*launch_fn)(void);       // called on tap
+    const char*  label;
+    PixelIconId  icon;
+    uint32_t     primary_hex;     // '#' cells
+    uint32_t     secondary_hex;   // '+' cells (= primary if icon is single-colour)
+    void (*launch_fn)(void);
 };
 
 // Pastel palette per app, picked to vary while staying in the kawaii range.
+// secondary_hex is only used when the icon's grid contains '+' (currently
+// just the Pomodoro tomato's green leaf).
 static const AppEntry s_apps[] = {
-    { "Galeria",   LV_SYMBOL_IMAGE,    0xFFB089, gallery_show      },  // peach
-    { "Cartinha",  LV_SYMBOL_ENVELOPE, 0xFB6F92, daily_card_show   },  // accent pink
-    { "Contador",  LV_SYMBOL_CHARGE,   0xE8B547, counter_show      },  // honey
-    { "Cartinhas", LV_SYMBOL_FILE,     0xC8A8E9, open_when_show    },  // lavender
-    { "Memory",    LV_SYMBOL_REFRESH,  0x8FD9B6, memory_game_show  },  // mint
-    { "Pomodoro",  LV_SYMBOL_LOOP,     0xE76F51, pomodoro_show     },  // tomato
-    { "Humor",     LV_SYMBOL_EYE_OPEN, 0x7FB3F0, mood_tracker_show },  // sky
-    { "Pet",       LV_SYMBOL_HOME,     0xC58A5C, tamagotchi_show   },  // warm tan
-    { "Ajustes",   LV_SYMBOL_SETTINGS, 0xA59EBC, settings_show     },  // dusk grey
+    { "Galeria",   PIX_GALLERY,    0xFFB089, 0xFFB089, gallery_show      },  // peach
+    { "Cartinha",  PIX_DAILY_CARD, 0xFB6F92, 0xFB6F92, daily_card_show   },  // accent pink
+    { "Contador",  PIX_COUNTER,    0xE8B547, 0xE8B547, counter_show      },  // honey
+    { "Cartinhas", PIX_OPEN_WHEN,  0xC8A8E9, 0xC8A8E9, open_when_show    },  // lavender
+    { "Memory",    PIX_MEMORY,     0x8FD9B6, 0x8FD9B6, memory_game_show  },  // mint
+    { "Pomodoro",  PIX_POMODORO,   0xE76F51, 0x6BB04A, pomodoro_show     },  // tomato + green leaf
+    { "Humor",     PIX_MOOD,       0x7FB3F0, 0x7FB3F0, mood_tracker_show },  // sky
+    { "Pet",       PIX_PET,        0xC58A5C, 0xC58A5C, tamagotchi_show   },  // warm tan house
+    { "Ajustes",   PIX_SETTINGS,   0xA59EBC, 0xA59EBC, settings_show     },  // dusk grey
 };
 
 static void update_time_label(void);
@@ -123,19 +127,17 @@ void homescreen_show(void) {
         lv_obj_set_user_data(card, (void*)&s_apps[i]);
         lv_obj_add_event_cb(card, app_card_event_cb, LV_EVENT_CLICKED, NULL);
 
-        // Symbol icon (placeholder for pixel-art icon — see TODO below)
-        // TODO: replace LV_SYMBOL with custom pixel-art icon image via lv_image_create
-        lv_obj_t* icon = lv_label_create(card);
-        lv_label_set_text(icon, s_apps[i].symbol);
-        lv_obj_set_style_text_color(icon, lv_color_hex(s_apps[i].icon_hex), LV_PART_MAIN);
-        lv_obj_set_style_text_font(icon, &lv_font_montserrat_24, LV_PART_MAIN);
-        lv_obj_align(icon, LV_ALIGN_TOP_MID, 0, 2);
+        // 16x16 pixel-art icon rendered at 2x (32x32 on screen).
+        lv_obj_t* icon = pixel_icon_create(card, s_apps[i].icon,
+                                           s_apps[i].primary_hex,
+                                           s_apps[i].secondary_hex, 2);
+        if (icon) lv_obj_align(icon, LV_ALIGN_TOP_MID, 0, 0);
 
         // Label
         lv_obj_t* label = lv_label_create(card);
         lv_label_set_text(label, s_apps[i].label);
         lv_obj_add_style(label, &theme_style_caption, LV_PART_MAIN);
-        lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, -6);
+        lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, -4);
     }
 
     lv_screen_load(s_screen);
