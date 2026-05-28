@@ -14,20 +14,15 @@
 #include "../../ui/theme.h"
 #include "../../ui/nav.h"
 #include "../../system/sdcard.h"
+#include "../../system/text_utils.h"
 
 static constexpr size_t MAX_MESSAGES = 56;
-static constexpr size_t MAX_MESSAGE_LEN = 96;
+static constexpr size_t MAX_MESSAGE_LEN = 128;
 
 static char  s_messages[MAX_MESSAGES][MAX_MESSAGE_LEN];
 static size_t s_message_count = 0;
 static int    s_current_index = 0;
 static lv_obj_t* s_text_label = nullptr;
-
-static void heart_scale_anim_cb(void* var, int32_t value) {
-    lv_obj_t* obj = (lv_obj_t*)var;
-    lv_obj_set_style_transform_scale_x(obj, value, LV_PART_MAIN);
-    lv_obj_set_style_transform_scale_y(obj, value, LV_PART_MAIN);
-}
 
 static const char* FALLBACK_MESSAGE =
     "(coloca o cartao SD com /messages.json pra ver uma mensagem do dia)";
@@ -52,8 +47,7 @@ static void load_messages(void) {
         if (s_message_count >= MAX_MESSAGES) break;
         const char* s = v.as<const char*>();
         if (!s) continue;
-        strncpy(s_messages[s_message_count], s, MAX_MESSAGE_LEN - 1);
-        s_messages[s_message_count][MAX_MESSAGE_LEN - 1] = '\0';
+        text_ascii_fold(s, s_messages[s_message_count], MAX_MESSAGE_LEN);
         s_message_count++;
     }
     Serial.printf("[daily_card] loaded %u messages\n", (unsigned)s_message_count);
@@ -123,7 +117,7 @@ void daily_card_show(void) {
 
     // Card with message
     lv_obj_t* card = lv_obj_create(scr);
-    lv_obj_set_size(card, 210, 200);
+    lv_obj_set_size(card, 210, 210);
     lv_obj_align(card, LV_ALIGN_TOP_MID, 0, 55);
     lv_obj_add_style(card, &theme_style_card, LV_PART_MAIN);
     lv_obj_set_style_pad_all(card, 14, LV_PART_MAIN);
@@ -134,27 +128,8 @@ void daily_card_show(void) {
     lv_obj_set_width(s_text_label, 180);
     lv_obj_set_style_text_align(s_text_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_color(s_text_label, theme_color_text(), LV_PART_MAIN);
-    lv_obj_set_style_text_font(s_text_label, &lv_font_montserrat_18, LV_PART_MAIN);
+    lv_obj_set_style_text_font(s_text_label, &lv_font_montserrat_16, LV_PART_MAIN);
     lv_obj_center(s_text_label);
-
-    // Pulsing heart accent (between card and button)
-    lv_obj_t* heart = lv_label_create(scr);
-    lv_label_set_text(heart, LV_SYMBOL_OK);
-    lv_obj_set_style_text_color(heart, theme_color_accent(), LV_PART_MAIN);
-    lv_obj_set_style_text_font(heart, &lv_font_montserrat_24, LV_PART_MAIN);
-    lv_obj_set_style_transform_pivot_x(heart, 14, LV_PART_MAIN);  // approx center for scale
-    lv_obj_set_style_transform_pivot_y(heart, 14, LV_PART_MAIN);
-    lv_obj_align(heart, LV_ALIGN_TOP_MID, 0, 264);
-
-    lv_anim_t heart_anim;
-    lv_anim_init(&heart_anim);
-    lv_anim_set_var(&heart_anim, heart);
-    lv_anim_set_values(&heart_anim, 256, 320);     // 1.0x → 1.25x
-    lv_anim_set_duration(&heart_anim, 700);
-    lv_anim_set_playback_duration(&heart_anim, 700);
-    lv_anim_set_repeat_count(&heart_anim, LV_ANIM_REPEAT_INFINITE);
-    lv_anim_set_exec_cb(&heart_anim, heart_scale_anim_cb);
-    lv_anim_start(&heart_anim);
 
     // "Outra" button
     lv_obj_t* next_btn = lv_button_create(scr);

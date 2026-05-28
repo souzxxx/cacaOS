@@ -18,6 +18,7 @@
 #include "../../ui/theme.h"
 #include "../../ui/nav.h"
 #include "../../system/sdcard.h"
+#include "../../system/text_utils.h"
 
 static constexpr size_t MAX_ENTRIES = 16;
 static constexpr size_t MAX_TITLE_LEN = 40;
@@ -38,8 +39,7 @@ static void parse_title_from(File& f, char* out_title) {
     if (f.available()) {
         String line = f.readStringUntil('\n');
         line.trim();
-        strncpy(out_title, line.c_str(), MAX_TITLE_LEN - 1);
-        out_title[MAX_TITLE_LEN - 1] = '\0';
+        text_ascii_fold(line.c_str(), out_title, MAX_TITLE_LEN);
     }
 }
 
@@ -90,6 +90,7 @@ static void load_body(const char* path) {
 
     bool past_separator = false;
     size_t pos = 0;
+    char line_ascii[256];
     while (f.available() && pos < MAX_BODY_LEN - 1) {
         String line = f.readStringUntil('\n');
         if (!past_separator) {
@@ -102,8 +103,9 @@ static void load_body(const char* path) {
             // first line was title; skip until ---
             continue;
         }
-        size_t copy_len = (line.length() < (MAX_BODY_LEN - 1 - pos)) ? line.length() : (MAX_BODY_LEN - 1 - pos);
-        memcpy(s_body_buf + pos, line.c_str(), copy_len);
+        size_t n = text_ascii_fold(line.c_str(), line_ascii, sizeof(line_ascii));
+        size_t copy_len = (n < (MAX_BODY_LEN - 1 - pos)) ? n : (MAX_BODY_LEN - 1 - pos);
+        memcpy(s_body_buf + pos, line_ascii, copy_len);
         pos += copy_len;
         if (pos < MAX_BODY_LEN - 1) s_body_buf[pos++] = '\n';
     }
@@ -246,6 +248,9 @@ void open_when_show(void) {
         lv_label_set_text(lbl, s_entries[i].title);
         lv_obj_set_style_text_color(lbl, theme_color_text(), LV_PART_MAIN);
         lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+        // Long titles scroll left-to-right in a loop so she can read the whole thing.
+        lv_obj_set_width(lbl, 170);
+        lv_label_set_long_mode(lbl, LV_LABEL_LONG_SCROLL_CIRCULAR);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 32, 0);
     }
 
