@@ -339,9 +339,9 @@ static void back_event_cb(lv_event_t* /*e*/) {
 }
 
 // Build a card with a roller centred inside and a static "unit" caption.
-static void make_unit_card(lv_obj_t* parent, int x, int y, int w, int h,
-                           const char* unit_text, Roller* out_roller,
-                           const lv_font_t* font) {
+static lv_obj_t* make_unit_card(lv_obj_t* parent, int x, int y, int w, int h,
+                                const char* unit_text, Roller* out_roller,
+                                const lv_font_t* font) {
     lv_obj_t* card = lv_obj_create(parent);
     lv_obj_set_size(card, w, h);
     lv_obj_set_pos(card, x, y);
@@ -359,6 +359,15 @@ static void make_unit_card(lv_obj_t* parent, int x, int y, int w, int h,
     lv_label_set_text(unit, unit_text);
     lv_obj_add_style(unit, &theme_style_caption, LV_PART_MAIN);
     lv_obj_align(unit, LV_ALIGN_BOTTOM_MID, 0, -2);
+
+    return card;
+}
+
+// Long-press the days card → manually celebrate (testing aid + cute easter egg).
+static void days_long_press_cb(lv_event_t* /*e*/) {
+    int64_t days = compute_days_now();
+    if (days < 0) days = 0;
+    show_milestone_overlay(days);
 }
 
 void counter_show(void) {
@@ -404,9 +413,12 @@ void counter_show(void) {
     lv_obj_set_style_text_font(s_caption_label, &lv_font_montserrat_14, LV_PART_MAIN);
     lv_obj_align(s_caption_label, LV_ALIGN_TOP_MID, 0, 50);
 
-    // Big "days" card with odometer
-    make_unit_card(scr, 20, 80, 200, 100, "dias",
-                   &s_days_roller, &lv_font_montserrat_32);
+    // Big "days" card with odometer. Long-press it to fire the milestone
+    // overlay manually (handy for testing, also a fun easter egg).
+    lv_obj_t* days_card = make_unit_card(scr, 20, 80, 200, 100, "dias",
+                                         &s_days_roller, &lv_font_montserrat_32);
+    lv_obj_add_flag(days_card, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(days_card, days_long_press_cb, LV_EVENT_LONG_PRESSED, NULL);
 
     // Two small cards: hours + minutes
     make_unit_card(scr, 20, 200, 95, 70, "horas",
