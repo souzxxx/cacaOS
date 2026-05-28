@@ -190,11 +190,69 @@ static void refresh_timer_cb(lv_timer_t* /*t*/) {
     homescreen_refresh();
 }
 
-static void app_card_event_cb(lv_event_t* e) {
-    lv_obj_t* card = (lv_obj_t*)lv_event_get_target(e);
-    const AppEntry* entry = (const AppEntry*)lv_obj_get_user_data(card);
+// Bounce: 1.0 -> 0.86 -> 1.1 -> 1.0 over ~200ms, then launch the app.
+// We carry the AppEntry through the animation user_data so the completion
+// callback knows which app to open.
+static void scale_anim_cb(void* var, int32_t v) {
+    lv_obj_t* obj = (lv_obj_t*)var;
+    lv_obj_set_style_transform_scale_x(obj, v, LV_PART_MAIN);
+    lv_obj_set_style_transform_scale_y(obj, v, LV_PART_MAIN);
+}
+
+static void bounce_launch_cb(lv_anim_t* a) {
+    const AppEntry* entry = (const AppEntry*)lv_anim_get_user_data(a);
     if (entry && entry->launch_fn) {
         Serial.printf("[home] launching '%s'\n", entry->label);
         entry->launch_fn();
     }
+}
+
+static void bounce_settle_cb(lv_anim_t* prev) {
+    lv_obj_t* card = (lv_obj_t*)prev->var;
+    const void* ud = lv_anim_get_user_data(prev);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, card);
+    lv_anim_set_values(&a, 282, 256);  // 1.10x -> 1.0x
+    lv_anim_set_duration(&a, 80);
+    lv_anim_set_exec_cb(&a, scale_anim_cb);
+    lv_anim_set_user_data(&a, (void*)ud);
+    lv_anim_set_completed_cb(&a, bounce_launch_cb);
+    lv_anim_start(&a);
+}
+
+static void bounce_overshoot_cb(lv_anim_t* prev) {
+    lv_obj_t* card = (lv_obj_t*)prev->var;
+    const void* ud = lv_anim_get_user_data(prev);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, card);
+    lv_anim_set_values(&a, 220, 282);  // 0.86x -> 1.10x overshoot
+    lv_anim_set_duration(&a, 90);
+    lv_anim_set_exec_cb(&a, scale_anim_cb);
+    lv_anim_set_user_data(&a, (void*)ud);
+    lv_anim_set_completed_cb(&a, bounce_settle_cb);
+    lv_anim_start(&a);
+}
+
+static void app_card_event_cb(lv_event_t* e) {
+    lv_obj_t* card = (lv_obj_t*)lv_event_get_target(e);
+    const AppEntry* entry = (const AppEntry*)lv_obj_get_user_data(card);
+    if (!entry) return;
+
+    // Anchor scale around the card's centre so the bounce stays in place.
+    lv_obj_set_style_transform_pivot_x(card, LV_PCT(50), LV_PART_MAIN);
+    lv_obj_set_style_transform_pivot_y(card, LV_PCT(50), LV_PART_MAIN);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, card);
+    lv_anim_set_values(&a, 256, 220);  // 1.0x -> 0.86x squish
+    lv_anim_set_duration(&a, 70);
+    lv_anim_set_exec_cb(&a, scale_anim_cb);
+    lv_anim_set_user_data(&a, (void*)entry);
+    lv_anim_set_completed_cb(&a, bounce_overshoot_cb);
+    lv_anim_start(&a);
 }
