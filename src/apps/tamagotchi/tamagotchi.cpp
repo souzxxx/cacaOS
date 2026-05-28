@@ -862,7 +862,8 @@ static void wizard_show_welcome(void) {
     lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
 
     // Static welcome bunny: clip container + image at frame 0 (no animation).
-    constexpr int WELCOME_SCALE = 1024;  // 4x
+    // 4x scale ran into the message; 2.5x leaves a comfortable gap.
+    constexpr int WELCOME_SCALE = 640;  // 2.5x
     constexpr int WELCOME_W = SPRITE_FRAME_W * WELCOME_SCALE / 256;
     constexpr int WELCOME_H = SPRITE_FRAME_H * WELCOME_SCALE / 256;
     lv_obj_t* bunny_box = lv_obj_create(card);
@@ -872,7 +873,7 @@ static void wizard_show_welcome(void) {
     lv_obj_set_style_pad_all(bunny_box, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(bunny_box, 0, LV_PART_MAIN);
     lv_obj_clear_flag(bunny_box, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_align(bunny_box, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_align(bunny_box, LV_ALIGN_TOP_MID, 0, 4);
 
     lv_obj_t* bunny = lv_image_create(bunny_box);
     lv_image_set_src(bunny, "S:/tamagotchi_sprites/cacaos_pet_assets/pets/white/idle.png");
@@ -887,7 +888,7 @@ static void wizard_show_welcome(void) {
     lv_obj_set_style_text_align(msg, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_color(msg, theme_color_text(), LV_PART_MAIN);
     lv_obj_set_style_text_font(msg, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_align(msg, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_align(msg, LV_ALIGN_BOTTOM_MID, 0, -4);
 
     // Adoption button
     lv_obj_t* btn = lv_button_create(scr);

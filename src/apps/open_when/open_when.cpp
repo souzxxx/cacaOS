@@ -1,6 +1,6 @@
 /**
  * @file open_when.cpp
- * @brief Lists /open_when/*.txt files on SD; tap opens content.
+ * @brief Lists /open_when/<name>.txt files on SD; tap opens content.
  *
  * Each file format:
  *   Line 1: title

@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * Open When app — Envelope-style cards. Reads /open_when/*.txt from SD.
+ * Open When app — Envelope-style cards. Reads /open_when/<name>.txt from SD.
  *
  * Entry point. Creates the app's screen and pushes it via nav_push().
  * Returns to homescreen when user taps the back button.
