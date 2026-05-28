@@ -24,11 +24,17 @@
 /*=========================
    STDLIB WRAPPER SETTINGS
  *=========================*/
-#define LV_USE_STDLIB_MALLOC   LV_STDLIB_BUILTIN
+#ifdef CACAOS_SIM
+  /* Host has plenty of RAM — using BUILTIN with the 32KB pool below blows up
+   * fast (lv_event_add asserts on lv_malloc NULL). Use the system allocator. */
+  #define LV_USE_STDLIB_MALLOC   LV_STDLIB_CLIB
+#else
+  #define LV_USE_STDLIB_MALLOC   LV_STDLIB_BUILTIN
+#endif
 #define LV_USE_STDLIB_STRING   LV_STDLIB_BUILTIN
 #define LV_USE_STDLIB_SPRINTF  LV_STDLIB_BUILTIN
 
-#define LV_MEM_SIZE            (32U * 1024U)
+#define LV_MEM_SIZE            (64U * 1024U)   /* picker/keyboard estouravam em 32KB */
 #define LV_MEM_POOL_INCLUDE    <stdlib.h>
 
 /*====================
@@ -49,9 +55,15 @@
 /*================
  * LOGGING
  *================*/
-#define LV_USE_LOG       0          /* 1 to enable, eats flash */
-/* LV_LOG_LEVEL left undefined here; lv_conf_internal.h picks a sane default
- * based on LV_USE_LOG. Defining both was triggering a "redefined" warning. */
+#ifdef CACAOS_SIM
+  #define LV_USE_LOG       1
+  #define LV_LOG_LEVEL     LV_LOG_LEVEL_WARN   /* assert/warn only — quiet */
+  #define LV_LOG_PRINTF    1
+#else
+  #define LV_USE_LOG       0          /* 1 to enable, eats flash */
+#endif
+/* LV_LOG_LEVEL left undefined when LV_USE_LOG=0; lv_conf_internal.h picks
+ * a sane default. Defining both was triggering a "redefined" warning. */
 
 /*=================
  * ASSERTS
@@ -183,8 +195,11 @@
 #ifdef CACAOS_SIM
   #define LV_USE_SDL              1
   #define LV_SDL_INCLUDE_PATH     <SDL2/SDL.h>
-  #define LV_SDL_RENDER_MODE      LV_DISPLAY_RENDER_MODE_DIRECT
-  #define LV_SDL_BUF_COUNT        1
+  /* PARTIAL with 2 buffers matches the device-side configuration and lets
+   * lv_screen_load_anim() composite old + new screens during transitions.
+   * DIRECT mode was freezing on screen pop / state change. */
+  #define LV_SDL_RENDER_MODE      LV_DISPLAY_RENDER_MODE_PARTIAL
+  #define LV_SDL_BUF_COUNT        2
   #define LV_SDL_FULLSCREEN       0
   #define LV_SDL_MOUSEWHEEL_MODE  LV_SDL_MOUSEWHEEL_MODE_ENCODER
   #define LV_USE_LINUX_FBDEV      0
