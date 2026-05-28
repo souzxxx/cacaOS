@@ -36,7 +36,15 @@ void nav_push(lv_obj_t* new_scr, nav_anim_t anim) {
     // The current active screen goes on the stack
     s_stack[s_depth++] = lv_screen_active();
 
-    lv_screen_load_anim(new_scr, to_lvgl_anim(anim), 300, 0, false);
+    // time=0 with NONE anim takes LVGL's "immediate load" shortcut; otherwise
+    // even NONE creates a 300ms dummy animation that collides with a follow-up
+    // load (the wizard does pop+show_next back-to-back).
+    uint32_t time = (anim == NAV_ANIM_NONE) ? 0 : 300;
+    lv_screen_load_anim(new_scr, to_lvgl_anim(anim), time, 0, false);
+}
+
+static void nav_delete_async_cb(void* obj) {
+    if (obj) lv_obj_delete((lv_obj_t*)obj);
 }
 
 void nav_pop(nav_anim_t anim) {
@@ -54,9 +62,19 @@ void nav_pop(nav_anim_t anim) {
     if (anim == NAV_ANIM_SLIDE_LEFT)  back_anim = NAV_ANIM_SLIDE_RIGHT;
     if (anim == NAV_ANIM_SLIDE_RIGHT) back_anim = NAV_ANIM_SLIDE_LEFT;
 
-    // auto-delete the screen we're leaving
-    lv_screen_load_anim(prev, to_lvgl_anim(back_anim), 300, 0, true);
-    (void)current; // deleted by lv_screen_load_anim's last param
+    // Two deletion strategies depending on anim type:
+    //  - NONE: shortcut path (time=0) swaps the screen synchronously, then
+    //    we async-delete `current` because the event callback that called
+    //    nav_pop still lives on `current`.
+    //  - Animated: let LVGL auto-delete on animation completion. Doing
+    //    async-delete here would fire before the 300ms anim finishes and
+    //    delete the still-active screen.
+    if (back_anim == NAV_ANIM_NONE) {
+        lv_screen_load_anim(prev, to_lvgl_anim(back_anim), 0, 0, false);
+        lv_async_call(nav_delete_async_cb, current);
+    } else {
+        lv_screen_load_anim(prev, to_lvgl_anim(back_anim), 300, 0, true);
+    }
 }
 
 void nav_reset_to(lv_obj_t* root_scr) {
