@@ -27,14 +27,14 @@ struct Roller {
     char                last[16];   // text currently shown
 };
 
-static lv_obj_t* roller_make_label(lv_obj_t* parent, const Roller* r, const char* text, int y) {
+static lv_obj_t* roller_make_label(lv_obj_t* parent, const Roller* r, const char* text) {
     lv_obj_t* lbl = lv_label_create(parent);
     lv_label_set_text(lbl, text);
     lv_obj_set_style_text_color(lbl, r->color, LV_PART_MAIN);
     lv_obj_set_style_text_font(lbl, r->font, LV_PART_MAIN);
     lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-    lv_obj_set_width(lbl, lv_obj_get_width(parent));
-    lv_obj_set_y(lbl, y);
+    lv_obj_set_width(lbl, LV_PCT(100));
+    lv_obj_center(lbl);
     return lbl;
 }
 
@@ -53,12 +53,12 @@ static void roller_init(Roller* r, lv_obj_t* parent, int x, int y, int w, int h,
     lv_obj_set_style_radius(r->clip, 0, LV_PART_MAIN);
     lv_obj_clear_flag(r->clip, LV_OBJ_FLAG_SCROLLABLE);
 
-    r->current = roller_make_label(r->clip, r, "--", 0);
-    // Centre vertically once layout is known.
-    lv_obj_update_layout(r->current);
+    r->current = roller_make_label(r->clip, r, "--");
 }
 
-static void anim_y_cb(void* var, int32_t v) { lv_obj_set_y((lv_obj_t*)var, v); }
+static void anim_translate_y_cb(void* var, int32_t v) {
+    lv_obj_set_style_translate_y((lv_obj_t*)var, v, LV_PART_MAIN);
+}
 static void anim_opa_cb(void* var, int32_t v) {
     lv_obj_set_style_opa((lv_obj_t*)var, (lv_opa_t)v, LV_PART_MAIN);
 }
@@ -71,28 +71,26 @@ static void roller_set(Roller* r, const char* text) {
     if (!r || !r->clip) return;
     if (strcmp(r->last, text) == 0) return;     // no change → no animation
 
-    bool first = (r->last[0] == '\0' || strcmp(r->last, "--") == 0);
+    bool first = (r->last[0] == '\0');
     strncpy(r->last, text, sizeof(r->last) - 1);
     r->last[sizeof(r->last) - 1] = '\0';
 
-    int h = lv_obj_get_height(r->clip);
-
     if (first) {
-        // First real value: just replace, no animation.
         lv_label_set_text(r->current, text);
         return;
     }
 
-    // Old label slides up + fades out.
-    lv_obj_t* old = r->current;
-    int old_y = lv_obj_get_y(old);
+    int h = lv_obj_get_height(r->clip);
+    if (h <= 0) h = 32;     // fallback if layout not yet computed
 
+    // Old label translates up + fades out.
+    lv_obj_t* old = r->current;
     lv_anim_t a;
     lv_anim_init(&a);
     lv_anim_set_var(&a, old);
-    lv_anim_set_values(&a, old_y, old_y - h);
+    lv_anim_set_values(&a, 0, -h);
     lv_anim_set_duration(&a, 280);
-    lv_anim_set_exec_cb(&a, anim_y_cb);
+    lv_anim_set_exec_cb(&a, anim_translate_y_cb);
     lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
     lv_anim_set_completed_cb(&a, delete_obj_anim_cb);
     lv_anim_start(&a);
@@ -105,17 +103,18 @@ static void roller_set(Roller* r, const char* text) {
     lv_anim_set_exec_cb(&fade_out, anim_opa_cb);
     lv_anim_start(&fade_out);
 
-    // New label appears below and slides up into place.
-    lv_obj_t* fresh = roller_make_label(r->clip, r, text, old_y + h);
+    // New label spawns centred but translated below, then animates to 0.
+    lv_obj_t* fresh = roller_make_label(r->clip, r, text);
+    lv_obj_set_style_translate_y(fresh, h, LV_PART_MAIN);
     lv_obj_set_style_opa(fresh, 0, LV_PART_MAIN);
     r->current = fresh;
 
     lv_anim_t in;
     lv_anim_init(&in);
     lv_anim_set_var(&in, fresh);
-    lv_anim_set_values(&in, old_y + h, old_y);
+    lv_anim_set_values(&in, h, 0);
     lv_anim_set_duration(&in, 280);
-    lv_anim_set_exec_cb(&in, anim_y_cb);
+    lv_anim_set_exec_cb(&in, anim_translate_y_cb);
     lv_anim_set_path_cb(&in, lv_anim_path_ease_out);
     lv_anim_start(&in);
 
@@ -183,7 +182,90 @@ static void refresh_values(void) {
     snprintf(buf, sizeof(buf), "%02lld", (long long)mins);  roller_set(&s_mins_roller,  buf);
 }
 
-// ---------- Milestone overlay ----------
+// ---------- Milestone overlay + fireworks ----------
+
+// Each pixel-art firework particle is a 4x4 square that flies outward,
+// fading as it goes. Eight directions per burst, three bursts staggered.
+static void anim_x_cb(void* var, int32_t v) { lv_obj_set_x((lv_obj_t*)var, v); }
+static void anim_y_cb(void* var, int32_t v) { lv_obj_set_y((lv_obj_t*)var, v); }
+
+static void spawn_firework_burst(lv_obj_t* parent, int cx, int cy) {
+    static const uint32_t COLORS[] = {
+        0xFB6F92, 0xFFB089, 0xE8B547, 0x8FD9B6, 0xC8A8E9, 0x7FB3F0,
+    };
+    static constexpr int N_COLORS = sizeof(COLORS) / sizeof(COLORS[0]);
+    // 8 directions, in (dx,dy) units of 1/100. End offset ≈ 60px.
+    static const int8_t DIRS[8][2] = {
+        { 100,   0}, { 71,  71}, {  0, 100}, {-71,  71},
+        {-100,   0}, {-71, -71}, {  0,-100}, { 71, -71},
+    };
+    constexpr int REACH = 60;
+    constexpr int SIZE  = 4;
+    constexpr int DURATION_MS = 650;
+
+    for (int i = 0; i < 8; ++i) {
+        lv_obj_t* p = lv_obj_create(parent);
+        lv_obj_set_size(p, SIZE, SIZE);
+        lv_obj_set_pos(p, cx - SIZE / 2, cy - SIZE / 2);
+        lv_obj_set_style_bg_color(p, lv_color_hex(COLORS[i % N_COLORS]), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(p, LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_set_style_border_width(p, 0, LV_PART_MAIN);
+        lv_obj_set_style_radius(p, 0, LV_PART_MAIN);          // square = pixel art
+        lv_obj_set_style_shadow_width(p, 0, LV_PART_MAIN);
+        lv_obj_clear_flag(p, LV_OBJ_FLAG_CLICKABLE);
+
+        int end_x = cx + (DIRS[i][0] * REACH) / 100 - SIZE / 2;
+        int end_y = cy + (DIRS[i][1] * REACH) / 100 - SIZE / 2;
+
+        lv_anim_t ax;
+        lv_anim_init(&ax);
+        lv_anim_set_var(&ax, p);
+        lv_anim_set_values(&ax, cx - SIZE / 2, end_x);
+        lv_anim_set_duration(&ax, DURATION_MS);
+        lv_anim_set_exec_cb(&ax, anim_x_cb);
+        lv_anim_set_path_cb(&ax, lv_anim_path_ease_out);
+        lv_anim_start(&ax);
+
+        lv_anim_t ay;
+        lv_anim_init(&ay);
+        lv_anim_set_var(&ay, p);
+        lv_anim_set_values(&ay, cy - SIZE / 2, end_y);
+        lv_anim_set_duration(&ay, DURATION_MS);
+        lv_anim_set_exec_cb(&ay, anim_y_cb);
+        lv_anim_set_path_cb(&ay, lv_anim_path_ease_out);
+        lv_anim_start(&ay);
+
+        lv_anim_t fade;
+        lv_anim_init(&fade);
+        lv_anim_set_var(&fade, p);
+        lv_anim_set_values(&fade, 255, 0);
+        lv_anim_set_duration(&fade, DURATION_MS);
+        lv_anim_set_delay(&fade, 120);  // hold bright for a bit, then fade
+        lv_anim_set_exec_cb(&fade, anim_opa_cb);
+        lv_anim_set_completed_cb(&fade, delete_obj_anim_cb);
+        lv_anim_start(&fade);
+    }
+}
+
+struct DelayedBurst { lv_obj_t* parent; int cx; int cy; };
+
+static void delayed_burst_cb(lv_timer_t* t) {
+    DelayedBurst* db = (DelayedBurst*)lv_timer_get_user_data(t);
+    if (db && db->parent) spawn_firework_burst(db->parent, db->cx, db->cy);
+    if (db) lv_free(db);
+    lv_timer_delete(t);
+}
+
+static void schedule_burst(lv_obj_t* parent, int cx, int cy, uint32_t delay_ms) {
+    DelayedBurst* db = (DelayedBurst*)lv_malloc(sizeof(DelayedBurst));
+    if (!db) return;
+    db->parent = parent;
+    db->cx = cx;
+    db->cy = cy;
+    lv_timer_t* t = lv_timer_create(delayed_burst_cb, delay_ms, db);
+    lv_timer_set_repeat_count(t, 1);
+}
+
 static void dismiss_milestone_overlay(lv_event_t* e) {
     lv_obj_t* overlay = (lv_obj_t*)lv_event_get_target(e);
     if (overlay) lv_obj_delete(overlay);
@@ -233,6 +315,11 @@ static void show_milestone_overlay(int64_t days) {
 
     lv_timer_t* auto_dismiss = lv_timer_create(auto_dismiss_milestone_cb, 4000, dim);
     lv_timer_set_repeat_count(auto_dismiss, 1);
+
+    // Three pixel-art firework bursts staggered around the card.
+    spawn_firework_burst(dim, 120, 120);
+    schedule_burst(dim,  60, 100, 250);
+    schedule_burst(dim, 180, 100, 450);
 }
 
 static void tick_cb(lv_timer_t* /*t*/) {
