@@ -251,6 +251,7 @@ void open_when_show(void) {
         // Long titles scroll left-to-right in a loop so she can read the whole thing.
         lv_obj_set_width(lbl, 170);
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_SCROLL_CIRCULAR);
+        lv_obj_set_style_anim_duration(lbl, 6000, LV_PART_MAIN);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 32, 0);
     }
 
