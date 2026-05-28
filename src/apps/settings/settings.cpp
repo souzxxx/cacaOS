@@ -14,6 +14,7 @@
 #include "../../system/display.h"
 #include "../../system/storage.h"
 #include "../../system/touch.h"
+#include "../wifi_config/wifi_config.h"
 
 #define CACAOS_VERSION "v0.1"
 
@@ -124,6 +125,10 @@ static void reset_touch_btn_cb(lv_event_t* /*e*/) {
     show_confirm_overlay("Resetar calibracao do touch?\nProximo boot vai recalibrar", reset_touch_confirm_cb);
 }
 
+static void wifi_btn_cb(lv_event_t* /*e*/) {
+    wifi_config_show();
+}
+
 void settings_show(void) {
     lv_obj_t* scr = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(scr, theme_color_bg(), LV_PART_MAIN);
@@ -157,10 +162,18 @@ void settings_show(void) {
     lv_obj_set_style_text_font(title, &lv_font_montserrat_18, LV_PART_MAIN);
     lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
 
+    // Scrollable content area below the fixed header
+    lv_obj_t* content = lv_obj_create(scr);
+    lv_obj_set_size(content, 240, 280);   // 320 - 40 header
+    lv_obj_set_pos(content, 0, 40);
+    lv_obj_set_style_bg_opa(content, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(content, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(content, 0, LV_PART_MAIN);
+
     // --- Brightness ---
-    lv_obj_t* bright_card = lv_obj_create(scr);
+    lv_obj_t* bright_card = lv_obj_create(content);
     lv_obj_set_size(bright_card, 220, 70);
-    lv_obj_align(bright_card, LV_ALIGN_TOP_MID, 0, 52);
+    lv_obj_align(bright_card, LV_ALIGN_TOP_MID, 0, 8);
     lv_obj_add_style(bright_card, &theme_style_card, LV_PART_MAIN);
     lv_obj_set_style_pad_all(bright_card, 10, LV_PART_MAIN);
     lv_obj_clear_flag(bright_card, LV_OBJ_FLAG_SCROLLABLE);
@@ -187,9 +200,9 @@ void settings_show(void) {
     }
 
     // --- Sobre ---
-    lv_obj_t* about_card = lv_obj_create(scr);
+    lv_obj_t* about_card = lv_obj_create(content);
     lv_obj_set_size(about_card, 220, 56);
-    lv_obj_align(about_card, LV_ALIGN_TOP_MID, 0, 130);
+    lv_obj_align(about_card, LV_ALIGN_TOP_MID, 0, 84);
     lv_obj_add_style(about_card, &theme_style_card, LV_PART_MAIN);
     lv_obj_set_style_pad_all(about_card, 10, LV_PART_MAIN);
     lv_obj_clear_flag(about_card, LV_OBJ_FLAG_SCROLLABLE);
@@ -206,10 +219,26 @@ void settings_show(void) {
     lv_obj_set_style_text_font(about_sub, &lv_font_montserrat_14, LV_PART_MAIN);
     lv_obj_align(about_sub, LV_ALIGN_BOTTOM_LEFT, 0, 0);
 
+    // --- WiFi config ---
+    lv_obj_t* wifi_btn = lv_button_create(content);
+    lv_obj_set_size(wifi_btn, 220, 40);
+    lv_obj_align(wifi_btn, LV_ALIGN_TOP_MID, 0, 146);
+    lv_obj_set_style_bg_color(wifi_btn, theme_color_card(), LV_PART_MAIN);
+    lv_obj_set_style_radius(wifi_btn, THEME_RADIUS_BUTTON, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(wifi_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(wifi_btn, 1, LV_PART_MAIN);
+    lv_obj_set_style_border_color(wifi_btn, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_add_event_cb(wifi_btn, wifi_btn_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* wifi_lbl = lv_label_create(wifi_btn);
+    lv_label_set_text(wifi_lbl, LV_SYMBOL_WIFI "  configurar wifi");
+    lv_obj_set_style_text_color(wifi_lbl, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(wifi_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_center(wifi_lbl);
+
     // --- Reset actions ---
-    lv_obj_t* reset_pet = lv_button_create(scr);
+    lv_obj_t* reset_pet = lv_button_create(content);
     lv_obj_set_size(reset_pet, 220, 40);
-    lv_obj_align(reset_pet, LV_ALIGN_TOP_MID, 0, 196);
+    lv_obj_align(reset_pet, LV_ALIGN_TOP_MID, 0, 192);
     lv_obj_set_style_bg_color(reset_pet, theme_color_card(), LV_PART_MAIN);
     lv_obj_set_style_radius(reset_pet, THEME_RADIUS_BUTTON, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(reset_pet, 0, LV_PART_MAIN);
@@ -222,9 +251,9 @@ void settings_show(void) {
     lv_obj_set_style_text_font(rp_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
     lv_obj_center(rp_lbl);
 
-    lv_obj_t* reset_touch = lv_button_create(scr);
+    lv_obj_t* reset_touch = lv_button_create(content);
     lv_obj_set_size(reset_touch, 220, 40);
-    lv_obj_align(reset_touch, LV_ALIGN_TOP_MID, 0, 244);
+    lv_obj_align(reset_touch, LV_ALIGN_TOP_MID, 0, 238);
     lv_obj_set_style_bg_color(reset_touch, theme_color_card(), LV_PART_MAIN);
     lv_obj_set_style_radius(reset_touch, THEME_RADIUS_BUTTON, LV_PART_MAIN);
     lv_obj_set_style_shadow_width(reset_touch, 0, LV_PART_MAIN);
