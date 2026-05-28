@@ -56,13 +56,29 @@ NVS, which then takes precedence on every subsequent boot.
 
 ## wifi_mgr API changes
 
-New public functions (header):
+**The apply flow is asynchronous.** A connection attempt can take up to ~10s,
+and CacaOS must never block the LVGL tick longer than 50ms (CLAUDE.md). So the
+UI kicks off an attempt, then polls a status enum from its own `lv_timer`.
 
-- `bool wifi_mgr_apply_credentials(const char* ssid, const char* pass);`
-  Attempts to connect with the given credentials. **Persists to NVS only on
-  success.** Returns `true` if connected within the timeout, `false` otherwise.
-  On failure the previously saved NVS credentials are left untouched so a bad
-  attempt never bricks a known-good network.
+New public types/functions (header):
+
+- ```c
+  typedef enum {
+      WIFI_APPLY_IDLE,     // nothing in progress
+      WIFI_APPLY_TESTING,  // attempt in flight
+      WIFI_APPLY_OK,       // connected + persisted to NVS
+      WIFI_APPLY_FAILED,   // timed out / wrong password; old creds restored
+  } wifi_apply_status_t;
+  ```
+- `void wifi_mgr_apply_credentials(const char* ssid, const char* pass);`
+  Non-blocking. Stores the candidate credentials as *pending*, starts a
+  connection attempt, and sets status to `TESTING`. Returns immediately. The
+  existing `wifi_mgr_loop()` state machine drives the attempt.
+- `wifi_apply_status_t wifi_mgr_apply_status(void);`
+  Polled by the UI. Becomes `OK` once connected (credentials are persisted to
+  NVS at that moment) or `FAILED` on timeout (pending creds discarded; the
+  previously resolved credentials are reconnected so a bad attempt never bricks
+  a known-good network).
 - `const char* wifi_mgr_current_ssid(void);`
   Returns the SSID currently in use (resolved NVS-or-config), for the UI to
   display and to mark the active row in the scan list.
@@ -71,12 +87,22 @@ Changed behavior:
 
 - `wifi_mgr_begin()` resolves credentials via NVS→config.h instead of reading
   `WIFI_SSID`/`WIFI_PASS` directly.
+- `wifi_mgr_loop()` CONNECTING case: on `WL_CONNECTED` while a pending apply is
+  set, persist the pending creds to NVS and set status `OK`; on timeout while
+  pending, set status `FAILED` and restart a connection with the resolved
+  (old) credentials.
 
-Internal helper:
+Internal helpers:
 
-- `static void resolve_credentials(char* ssid_out, char* pass_out);` —
-  single source of truth for the NVS→config.h fallback, used by both
-  `begin()` and `apply_credentials()`.
+- `static void resolve_credentials(char* ssid_out, char* pass_out);` — single
+  source of truth for the NVS→config.h fallback, used by `begin()` /
+  `start_connection()`.
+- `static void persist_credentials(const char* ssid, const char* pass);` —
+  writes ssid/pass to NVS namespace `"wifi"`.
+
+The IP shown on success and the network scan are read directly from `WiFi.*`
+in `wifi_config.cpp` (which is device-only), keeping `wifi_mgr` focused on the
+connection lifecycle.
 
 ## Screen flow (`wifi_config`)
 
@@ -92,13 +118,14 @@ Internal helper:
    `lv_keyboard` (same pattern as the tamagotchi naming wizard,
    `tamagotchi.cpp:1158-1173`). Open networks (no 🔒) skip the password step.
    The "Outra" row first asks for the SSID, then the password.
-4. **Conectar** → call `wifi_mgr_apply_credentials(ssid, pass)` (attempts
-   connection *before* persisting).
-5. **Result**:
-   - ✓ connected → show success (network name + IP), persist already done by
-     `apply_credentials`. Return to settings after a short confirmation.
-   - ✗ failed (wrong password / timeout ~10s) → show an error with a retry
-     option. Previously saved NVS credentials are preserved.
+4. **Conectar** → call `wifi_mgr_apply_credentials(ssid, pass)` (non-blocking),
+   show a "conectando…" spinner, and start an `lv_timer` polling
+   `wifi_mgr_apply_status()` (~200ms).
+5. **Result** (driven by the poll timer):
+   - `OK` → show success (network name + `WiFi.localIP()`); NVS persist already
+     happened in `wifi_mgr_loop`. Return to settings after a short confirmation.
+   - `FAILED` → show an error with a retry option. Previously saved NVS
+     credentials are preserved and reconnected automatically.
 
 ## Error handling
 
@@ -125,8 +152,19 @@ Internal helper:
 | `src/system/wifi_mgr.cpp` | NVS→config.h credential resolution; apply+persist; reconnect |
 | `src/system/storage.h` | document the new `"wifi"` reserved namespace |
 | `src/apps/wifi_config/wifi_config.h` | `void wifi_config_show(void);` |
-| `src/apps/wifi_config/wifi_config.cpp` | scan / list / password / connect flow |
-| `src/apps/settings/settings.cpp` | add a "WiFi" row that calls `wifi_config_show()` |
+| `src/apps/wifi_config/wifi_config.cpp` | scan / list / password / connect flow (device-only) |
+| `src/apps/settings/settings.cpp` | add a "WiFi" row that calls `wifi_config_show()`; make screen scrollable |
+| `src/sim/wifi_config_sim.cpp` | no-op `wifi_config_show()` so the sim links |
+| `platformio.ini` | exclude `apps/wifi_config/wifi_config.cpp` from the `sim` build |
+
+### Sim handling
+
+`wifi_config.cpp` calls `WiFi.*` (scan, localIP) which has no sim shim, so it is
+excluded from the `sim` build exactly like `wifi_mgr.cpp` already is. The
+`settings` screen (which *is* in the sim build) calls `wifi_config_show()`, so a
+no-op `wifi_config_sim.cpp` provides that symbol. The new `wifi_mgr` functions
+are only called from `wifi_config.cpp` (device-only), so `wifi_mgr_sim.cpp`
+needs no changes.
 
 ## Testing
 
