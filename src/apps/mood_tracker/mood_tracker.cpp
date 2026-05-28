@@ -60,6 +60,13 @@ static void save_mood(const char* key, uint8_t value) {
     prefs.end();
 }
 
+static void clear_all_moods(void) {
+    Preferences prefs;
+    if (!prefs.begin("mood", false)) return;
+    prefs.clear();
+    prefs.end();
+}
+
 static void refresh_button_states(void) {
     for (int i = 0; i < 5; ++i) {
         if (!s_buttons[i]) continue;
@@ -98,6 +105,16 @@ static void back_event_cb(lv_event_t* /*e*/) {
     s_heatmap_row = nullptr;
     for (int i = 0; i < 5; ++i) s_buttons[i] = nullptr;
     nav_pop(NAV_ANIM_SLIDE_RIGHT);
+}
+
+static void rebuild_heatmap(void);
+
+static void heatmap_long_press_cb(lv_event_t* /*e*/) {
+    clear_all_moods();
+    s_today_mood = 0;
+    refresh_button_states();
+    refresh_today_label();
+    rebuild_heatmap();
 }
 
 static void make_heatmap_cells(lv_obj_t* parent) {
@@ -226,7 +243,15 @@ void mood_tracker_show(void) {
     lv_obj_set_style_border_width(s_heatmap_row, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(s_heatmap_row, 0, LV_PART_MAIN);
     lv_obj_clear_flag(s_heatmap_row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(s_heatmap_row, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(s_heatmap_row, heatmap_long_press_cb, LV_EVENT_LONG_PRESSED, NULL);
     make_heatmap_cells(s_heatmap_row);
 
     nav_push(scr, NAV_ANIM_SLIDE_LEFT);
+}
+
+static void rebuild_heatmap(void) {
+    if (!s_heatmap_row) return;
+    lv_obj_clean(s_heatmap_row);
+    make_heatmap_cells(s_heatmap_row);
 }
