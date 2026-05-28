@@ -91,6 +91,13 @@ void setup() {
     s_last_tick_ms = millis();
     rgb_led_off();   // boot complete; apps can claim the LED
     Serial.println(F("[boot] CacaOS ready."));
+
+    // Heap baseline after full init. LVGL now allocates from this general heap
+    // (CLIB allocator) instead of a fixed static pool — these numbers show how
+    // much room apps actually have. largest_block matters for fragmentation:
+    // the keyboard/picker need a few contiguous KB.
+    Serial.printf("[heap] post-boot: free=%u largest_block=%u min_ever=%u\n",
+                  ESP.getFreeHeap(), ESP.getMaxAllocHeap(), ESP.getMinFreeHeap());
 }
 
 void loop() {

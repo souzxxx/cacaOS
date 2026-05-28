@@ -1172,6 +1172,13 @@ static void wizard_show_naming(void) {
     lv_keyboard_set_textarea(kb, s_name_input);
     lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_TEXT_LOWER);
 
+    // Known LVGL heap peak: the keyboard button matrix is the largest single
+    // allocation in the app. This is why the old BUILTIN pool needed >32KB.
+#ifndef CACAOS_SIM
+    Serial.printf("[heap] naming wizard + keyboard: free=%u largest_block=%u\n",
+                  ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+#endif
+
     nav_push(scr, NAV_ANIM_SLIDE_LEFT);
 }
 
