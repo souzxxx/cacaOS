@@ -17,6 +17,7 @@
  *   "memory"  - memory game best times
  *   "mood"    - mood tracker entries
  *   "system"  - global system prefs (brightness, theme, etc.)
+ *   "wifi"    - on-device WiFi credentials (ssid, pass)
  */
 void storage_init(void);
 
