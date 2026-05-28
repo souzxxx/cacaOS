@@ -135,7 +135,7 @@ void homescreen_show(void) {
         lv_obj_t* label = lv_label_create(card);
         lv_label_set_text(label, s_apps[i].label);
         lv_obj_add_style(label, &theme_style_caption, LV_PART_MAIN);
-        lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, -8);
+        lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, -6);
     }
 
     lv_screen_load(s_screen);
