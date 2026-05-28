@@ -40,3 +40,8 @@ venv/
 # Local notes
 NOTES.md
 todo.md
+
+# Agent / Claude Code local config (per-machine)
+.agents/
+.claude/
+skills-lock.json
