@@ -40,6 +40,7 @@ static lv_timer_t* s_tick = nullptr;
 static lv_obj_t* s_state_label = nullptr;
 static lv_obj_t* s_time_label = nullptr;
 static lv_obj_t* s_time_card = nullptr;
+static lv_obj_t* s_progress_arc = nullptr;
 static lv_obj_t* s_count_label = nullptr;
 static lv_obj_t* s_play_btn = nullptr;
 static lv_obj_t* s_play_lbl = nullptr;
@@ -147,12 +148,33 @@ static void update_led(void) {
     }
 }
 
+// Fill the ring as the current phase elapses (empty at phase start, full at
+// the end). Hidden while idle; pink during focus, green during break.
+static void update_progress_arc(void) {
+    if (!s_progress_arc) return;
+    if (s_state == POMO_IDLE) {
+        lv_obj_add_flag(s_progress_arc, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    lv_obj_clear_flag(s_progress_arc, LV_OBJ_FLAG_HIDDEN);
+
+    bool focus = (s_state == POMO_FOCUS || s_state == POMO_PAUSED_FOCUS);
+    uint32_t total = focus ? focus_seconds() : BREAK_SECONDS;
+    if (total == 0) total = 1;
+    uint32_t elapsed = (s_seconds_left <= total) ? (total - s_seconds_left) : 0;
+    lv_arc_set_value(s_progress_arc, (int32_t)((uint64_t)elapsed * 1000 / total));
+    lv_obj_set_style_arc_color(s_progress_arc,
+                               focus ? theme_color_accent() : theme_color_success(),
+                               LV_PART_INDICATOR);
+}
+
 static void refresh_all(void) {
     update_state_label();
     update_time_label();
     update_play_label();
     update_count_label();
     update_led();
+    update_progress_arc();
     refresh_pet_sprite();
 }
 
@@ -162,6 +184,7 @@ static void tick_cb(lv_timer_t* /*t*/) {
     if (s_seconds_left > 0) {
         s_seconds_left--;
         update_time_label();
+        update_progress_arc();
         return;
     }
 
@@ -222,6 +245,7 @@ static void back_event_cb(lv_event_t* /*e*/) {
     if (s_pet_anim_timer) { lv_timer_delete(s_pet_anim_timer);  s_pet_anim_timer = nullptr; }
     rgb_led_off();
     s_state_label = s_time_label = s_time_card = s_count_label = nullptr;
+    s_progress_arc = nullptr;
     s_play_btn = s_play_lbl = nullptr;
     s_pet_img = nullptr;
     nav_pop(NAV_ANIM_SLIDE_RIGHT);
@@ -266,12 +290,12 @@ void pomodoro_show(void) {
 
     s_state_label = lv_label_create(scr);
     lv_obj_set_style_text_font(s_state_label, &lv_font_montserrat_18, LV_PART_MAIN);
-    lv_obj_align(s_state_label, LV_ALIGN_TOP_MID, 0, 56);
+    lv_obj_align(s_state_label, LV_ALIGN_TOP_MID, 0, 50);
 
     // Timer card — tap to change duration while idle.
     s_time_card = lv_obj_create(scr);
-    lv_obj_set_size(s_time_card, 200, 76);
-    lv_obj_align(s_time_card, LV_ALIGN_TOP_MID, 0, 80);
+    lv_obj_set_size(s_time_card, 200, 56);
+    lv_obj_align(s_time_card, LV_ALIGN_TOP_MID, 0, 72);
     lv_obj_add_style(s_time_card, &theme_style_card, LV_PART_MAIN);
     lv_obj_clear_flag(s_time_card, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(s_time_card, LV_OBJ_FLAG_CLICKABLE);
@@ -281,6 +305,22 @@ void pomodoro_show(void) {
     lv_obj_set_style_text_color(s_time_label, theme_color_accent(), LV_PART_MAIN);
     lv_obj_set_style_text_font(s_time_label, &lv_font_montserrat_24, LV_PART_MAIN);
     lv_obj_center(s_time_label);
+
+    // Progress ring around the pet — fills as the current phase elapses.
+    // Created before the sprite so the pet draws on top of the track.
+    s_progress_arc = lv_arc_create(scr);
+    lv_obj_set_size(s_progress_arc, 104, 104);
+    lv_obj_align(s_progress_arc, LV_ALIGN_TOP_MID, 0, 128);
+    lv_arc_set_rotation(s_progress_arc, 270);       // start at 12 o'clock
+    lv_arc_set_bg_angles(s_progress_arc, 0, 360);   // full-circle track
+    lv_arc_set_range(s_progress_arc, 0, 1000);
+    lv_arc_set_value(s_progress_arc, 0);
+    lv_obj_clear_flag(s_progress_arc, LV_OBJ_FLAG_CLICKABLE);  // display only
+    lv_obj_set_style_arc_width(s_progress_arc, 6, LV_PART_MAIN);
+    lv_obj_set_style_arc_color(s_progress_arc, theme_color_text_light(), LV_PART_MAIN);
+    lv_obj_set_style_arc_width(s_progress_arc, 6, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(s_progress_arc, theme_color_accent(), LV_PART_INDICATOR);
+    lv_obj_set_style_bg_opa(s_progress_arc, LV_OPA_TRANSP, LV_PART_KNOB);  // hide knob
 
     // Pet sprite: clipping container + scaled image, mirrors tamagotchi.
     load_pet_slug();

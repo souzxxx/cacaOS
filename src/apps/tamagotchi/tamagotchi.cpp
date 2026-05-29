@@ -28,6 +28,7 @@
 #include "../../config.h"
 #include "../../ui/theme.h"
 #include "../../ui/nav.h"
+#include "../../ui/pixel_icons.h"
 #include "../../system/rgb_led.h"
 
 static constexpr uint8_t STAT_MAX = 100;
@@ -623,7 +624,7 @@ static void confirm_reset_dialog(void) {
     lv_obj_center(yes_lbl);
 }
 
-static lv_obj_t* make_stat_row(lv_obj_t* parent, int y, const char* label_text,
+static lv_obj_t* make_stat_row(lv_obj_t* parent, int y, PixelIconId icon_id,
                                uint32_t color_hex, lv_obj_t** out_bar, lv_obj_t** out_val) {
     lv_obj_t* row = lv_obj_create(parent);
     lv_obj_set_size(row, 220, 22);
@@ -633,11 +634,10 @@ static lv_obj_t* make_stat_row(lv_obj_t* parent, int y, const char* label_text,
     lv_obj_set_style_pad_all(row, 0, LV_PART_MAIN);
     lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_obj_t* icon = lv_label_create(row);
-    lv_label_set_text(icon, label_text);
-    lv_obj_set_style_text_color(icon, theme_color_text(), LV_PART_MAIN);
-    lv_obj_set_style_text_font(icon, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_align(icon, LV_ALIGN_LEFT_MID, 0, 0);
+    // Pixel-art stat icon, tinted with the bar's colour so the badge reads as a
+    // key for the bar beside it (replaces the old text label).
+    lv_obj_t* icon = pixel_icon_create(row, icon_id, color_hex, color_hex, 1);
+    if (icon) lv_obj_align(icon, LV_ALIGN_LEFT_MID, 2, 0);
 
     lv_obj_t* bar = lv_bar_create(row);
     lv_obj_set_size(bar, 110, 12);
@@ -739,10 +739,10 @@ static void show_main_screen(void) {
     lv_obj_center(gear);
 
     // Stat bars
-    make_stat_row(scr, 48,  "fome",   0xFF8FAB, &s_hunger_bar, &s_hunger_val);
-    make_stat_row(scr, 74,  "feliz",  0xFB6F92, &s_happy_bar,  &s_happy_val);
-    make_stat_row(scr, 100, "ener",   0xFFD166, &s_energy_bar, &s_energy_val);
-    make_stat_row(scr, 126, "limpa",  0x9AE5E0, &s_clean_bar,  &s_clean_val);
+    make_stat_row(scr, 48,  PIX_STAT_HUNGER, 0xFF8FAB, &s_hunger_bar, &s_hunger_val);
+    make_stat_row(scr, 74,  PIX_STAT_HAPPY,  0xFB6F92, &s_happy_bar,  &s_happy_val);
+    make_stat_row(scr, 100, PIX_STAT_ENERGY, 0xFFD166, &s_energy_bar, &s_energy_val);
+    make_stat_row(scr, 126, PIX_STAT_CLEAN,  0x9AE5E0, &s_clean_bar,  &s_clean_val);
 
     // Pet area: background image fills container, sprite on top, status below
     lv_obj_t* pet_card = lv_obj_create(scr);
@@ -1171,6 +1171,13 @@ static void wizard_show_naming(void) {
     lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_keyboard_set_textarea(kb, s_name_input);
     lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_TEXT_LOWER);
+
+    // Known LVGL heap peak: the keyboard button matrix is the largest single
+    // allocation in the app. This is why the old BUILTIN pool needed >32KB.
+#ifndef CACAOS_SIM
+    Serial.printf("[heap] naming wizard + keyboard: free=%u largest_block=%u\n",
+                  ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+#endif
 
     nav_push(scr, NAV_ANIM_SLIDE_LEFT);
 }

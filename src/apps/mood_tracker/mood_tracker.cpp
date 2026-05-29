@@ -14,6 +14,7 @@
 
 #include "../../ui/theme.h"
 #include "../../ui/nav.h"
+#include "../../ui/pixel_icons.h"
 
 static lv_obj_t* s_today_label = nullptr;
 static lv_obj_t* s_heatmap_row = nullptr;
@@ -21,7 +22,9 @@ static lv_obj_t* s_buttons[5]  = {nullptr};
 static uint8_t   s_today_mood  = 0;
 
 // Mood meta: label + color
-static const char* MOOD_EMOJI[5] = { ":D", ":)", ":|", ":(", ":/" };
+static const PixelIconId MOOD_ICON[5] = {
+    PIX_MOOD_HAPPY, PIX_MOOD_OK, PIX_MOOD_MEH, PIX_MOOD_SAD, PIX_MOOD_ANGRY
+};
 static const char* MOOD_LABEL[5] = { "feliz", "ok", "mais ou menos", "triste", "irritada" };
 static uint32_t MOOD_COLOR_HEX[5] = {
     0xB5E48C, // feliz   - green
@@ -218,11 +221,11 @@ void mood_tracker_show(void) {
         lv_obj_set_user_data(btn, (void*)(intptr_t)i);
         lv_obj_add_event_cb(btn, mood_clicked_cb, LV_EVENT_CLICKED, NULL);
 
-        lv_obj_t* face = lv_label_create(btn);
-        lv_label_set_text(face, MOOD_EMOJI[i]);
-        lv_obj_set_style_text_color(face, theme_color_text(), LV_PART_MAIN);
-        lv_obj_set_style_text_font(face, &lv_font_montserrat_18, LV_PART_MAIN);
-        lv_obj_center(face);
+        // Pixel-art face features drawn over the coloured button (which acts as
+        // the face). Dark tint so eyes/mouth read on every pastel background.
+        uint32_t face_hex = lv_color_to_u32(theme_color_text());
+        lv_obj_t* face = pixel_icon_create(btn, MOOD_ICON[i], face_hex, face_hex, 2);
+        if (face) lv_obj_center(face);
 
         s_buttons[i] = btn;
     }

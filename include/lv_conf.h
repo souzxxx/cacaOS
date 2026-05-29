@@ -24,17 +24,18 @@
 /*=========================
    STDLIB WRAPPER SETTINGS
  *=========================*/
-#ifdef CACAOS_SIM
-  /* Host has plenty of RAM — using BUILTIN with the 32KB pool below blows up
-   * fast (lv_event_add asserts on lv_malloc NULL). Use the system allocator. */
-  #define LV_USE_STDLIB_MALLOC   LV_STDLIB_CLIB
-#else
-  #define LV_USE_STDLIB_MALLOC   LV_STDLIB_BUILTIN
-#endif
+/* Use the system allocator on both host and device. On the ESP32 (WROOM, no
+ * PSRAM) the BUILTIN pool is reserved as a fixed static BSS block of
+ * LV_MEM_SIZE regardless of actual use; at 64KB that overflowed dram0_0_seg.
+ * CLIB lets LVGL allocate from the general heap (~200KB) on demand, which is
+ * where the keyboard/picker peaks live comfortably. */
+#define LV_USE_STDLIB_MALLOC   LV_STDLIB_CLIB
 #define LV_USE_STDLIB_STRING   LV_STDLIB_BUILTIN
 #define LV_USE_STDLIB_SPRINTF  LV_STDLIB_BUILTIN
 
-#define LV_MEM_SIZE            (64U * 1024U)   /* picker/keyboard estouravam em 32KB */
+/* Only consulted by the BUILTIN allocator (now unused — see CLIB above). Kept
+ * for reference; changing it has no effect while LV_USE_STDLIB_MALLOC is CLIB. */
+#define LV_MEM_SIZE            (64U * 1024U)
 #define LV_MEM_POOL_INCLUDE    <stdlib.h>
 
 /*====================

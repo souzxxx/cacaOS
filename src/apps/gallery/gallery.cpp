@@ -28,7 +28,10 @@ static int    s_current_index = 0;
 static lv_obj_t* s_image = nullptr;
 static lv_obj_t* s_empty_label = nullptr;
 static lv_obj_t* s_counter_label = nullptr;
+static lv_timer_t* s_autoplay_timer = nullptr;
 static char  s_image_path[80];
+
+static constexpr uint32_t AUTOPLAY_INTERVAL_MS = 3000;
 
 static bool ext_matches_image(const char* name) {
     size_t len = strlen(name);
@@ -65,13 +68,30 @@ static void scan_photos(void) {
     Serial.printf("[gallery] indexed %u photos\n", (unsigned)s_photo_count);
 }
 
+static void update_counter(void) {
+    if (!s_counter_label) return;
+    char buf[24];
+    if (s_photo_count == 0) {
+        lv_label_set_text(s_counter_label, "0 / 0");
+        return;
+    }
+    if (s_autoplay_timer) {
+        snprintf(buf, sizeof(buf), LV_SYMBOL_PLAY " %d / %u",
+                 s_current_index + 1, (unsigned)s_photo_count);
+    } else {
+        snprintf(buf, sizeof(buf), "%d / %u",
+                 s_current_index + 1, (unsigned)s_photo_count);
+    }
+    lv_label_set_text(s_counter_label, buf);
+}
+
 static void refresh(void) {
     if (!s_counter_label) return;
 
     if (s_photo_count == 0) {
         if (s_empty_label) lv_obj_remove_flag(s_empty_label, LV_OBJ_FLAG_HIDDEN);
         if (s_image)       lv_obj_add_flag(s_image, LV_OBJ_FLAG_HIDDEN);
-        lv_label_set_text(s_counter_label, "0 / 0");
+        update_counter();
         return;
     }
 
@@ -84,15 +104,49 @@ static void refresh(void) {
     }
     if (s_empty_label) lv_obj_add_flag(s_empty_label, LV_OBJ_FLAG_HIDDEN);
 
-    char buf[16];
-    snprintf(buf, sizeof(buf), "%d / %u", s_current_index + 1, (unsigned)s_photo_count);
-    lv_label_set_text(s_counter_label, buf);
+    update_counter();
 }
 
-static void prev_cb(lv_event_t* /*e*/) { s_current_index--; refresh(); }
-static void next_cb(lv_event_t* /*e*/) { s_current_index++; refresh(); }
+static void autoplay_tick_cb(lv_timer_t* /*t*/) {
+    s_current_index++;
+    refresh();
+}
+
+static void set_autoplay(bool on) {
+    if (on && !s_autoplay_timer) {
+        s_autoplay_timer = lv_timer_create(autoplay_tick_cb, AUTOPLAY_INTERVAL_MS, NULL);
+    } else if (!on && s_autoplay_timer) {
+        lv_timer_delete(s_autoplay_timer);
+        s_autoplay_timer = nullptr;
+    }
+    update_counter();
+}
+
+static void prev_cb(lv_event_t* /*e*/) { set_autoplay(false); s_current_index--; refresh(); }
+static void next_cb(lv_event_t* /*e*/) { set_autoplay(false); s_current_index++; refresh(); }
+
+static void gesture_cb(lv_event_t* /*e*/) {
+    lv_indev_t* indev = lv_indev_active();
+    if (!indev) return;
+    lv_dir_t dir = lv_indev_get_gesture_dir(indev);
+    if (dir == LV_DIR_LEFT) {
+        set_autoplay(false);
+        s_current_index++;
+        refresh();
+    } else if (dir == LV_DIR_RIGHT) {
+        set_autoplay(false);
+        s_current_index--;
+        refresh();
+    }
+    lv_indev_wait_release(indev);
+}
+
+static void long_press_cb(lv_event_t* /*e*/) {
+    set_autoplay(s_autoplay_timer == nullptr);
+}
 
 static void back_event_cb(lv_event_t* /*e*/) {
+    set_autoplay(false);
     s_image = s_empty_label = s_counter_label = nullptr;
     nav_pop(NAV_ANIM_SLIDE_RIGHT);
 }
@@ -143,11 +197,17 @@ void gallery_show(void) {
     lv_obj_set_style_radius(preview, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(preview, 0, LV_PART_MAIN);
     lv_obj_clear_flag(preview, LV_OBJ_FLAG_SCROLLABLE);
+    // Long-press anywhere on the photo toggles autoplay (3s / photo).
+    lv_obj_add_flag(preview, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(preview, long_press_cb, LV_EVENT_LONG_PRESSED, NULL);
 
     s_image = lv_image_create(preview);
     lv_obj_set_size(s_image, 240, 220);
     lv_image_set_inner_align(s_image, LV_IMAGE_ALIGN_CONTAIN);
     lv_obj_center(s_image);
+
+    // Swipe left/right on the screen advances photos.
+    lv_obj_add_event_cb(scr, gesture_cb, LV_EVENT_GESTURE, NULL);
 
     s_empty_label = lv_label_create(preview);
     lv_label_set_long_mode(s_empty_label, LV_LABEL_LONG_WRAP);
