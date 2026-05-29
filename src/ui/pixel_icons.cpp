@@ -203,6 +203,25 @@ const IconArt ICONS[PIX_COUNT] = {
         "                ",
         "                ",
     }},
+    // PIX_LOCK — padlock: inverted-U shackle over a solid body with a keyhole
+    {{
+        "                ",
+        "                ",
+        "                ",
+        "     ######     ",
+        "     ##  ##     ",
+        "     ##  ##     ",
+        "     ##  ##     ",
+        "   ##########   ",
+        "   ##########   ",
+        "   ####  ####   ",
+        "   ####  ####   ",
+        "   ##########   ",
+        "   ##########   ",
+        "   ##########   ",
+        "                ",
+        "                ",
+    }},
 };
 // clang-format on
 

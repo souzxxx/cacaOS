@@ -26,6 +26,7 @@ enum PixelIconId {
     PIX_MOOD,
     PIX_PET,
     PIX_SETTINGS,
+    PIX_LOCK,        // padlock badge (used by the WiFi list for secured networks)
     PIX_COUNT
 };
 

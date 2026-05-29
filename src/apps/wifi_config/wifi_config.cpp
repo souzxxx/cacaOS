@@ -14,6 +14,7 @@
 
 #include "../../ui/theme.h"
 #include "../../ui/nav.h"
+#include "../../ui/pixel_icons.h"
 #include "../../system/wifi_mgr.h"
 
 // ---------------------------------------------------------------------------
@@ -100,16 +101,26 @@ static void add_row(const char* ssid, bool secured) {
     lv_obj_add_event_cb(row, network_row_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(row, row_free_cb,    LV_EVENT_DELETE,  NULL);
 
+    bool manual = (strcmp(ssid, MANUAL_SSID_LABEL) == 0);
+    // Secured (real) networks get a custom pixel-art padlock badge; open ones
+    // show none. The manual "Outra (digitar)" row carries no badge.
+    bool show_lock = secured && !manual;
+
     lv_obj_t* lbl = lv_label_create(row);
     char buf[48];
-    // Open networks are flagged in text (PT-BR); secured ones show no badge —
-    // LVGL's built-in font has no lock glyph (a custom one is a follow-up).
-    snprintf(buf, sizeof(buf), LV_SYMBOL_WIFI " %s%s",
-             ssid, secured ? "" : "  (aberta)");
+    snprintf(buf, sizeof(buf), LV_SYMBOL_WIFI " %s", ssid);
     lv_label_set_text(lbl, buf);
+    lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);  // ellipsize long SSIDs
+    lv_obj_set_width(lbl, lv_pct(show_lock ? 78 : 92));
     lv_obj_set_style_text_color(lbl, theme_color_text(), LV_PART_MAIN);
     lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_center(lbl);
+    lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 4, 0);
+
+    if (show_lock) {
+        uint32_t lock_hex = lv_color_to_u32(theme_color_text());
+        lv_obj_t* lock = pixel_icon_create(row, PIX_LOCK, lock_hex, lock_hex, 1);
+        if (lock) lv_obj_align(lock, LV_ALIGN_RIGHT_MID, -2, 0);
+    }
 
     // Mark the active network
     if (strcmp(ssid, wifi_mgr_current_ssid()) == 0) {
