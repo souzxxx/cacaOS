@@ -17,6 +17,11 @@
 #include "../../system/wifi_mgr.h"
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+static constexpr char MANUAL_SSID_LABEL[] = "Outra (digitar)";
+
+// ---------------------------------------------------------------------------
 // Module state
 // ---------------------------------------------------------------------------
 static lv_obj_t*   s_list        = nullptr;  // scrollable network list
@@ -24,6 +29,8 @@ static lv_obj_t*   s_status      = nullptr;  // "procurando…" / errors
 static lv_timer_t* s_scan_timer  = nullptr;  // polls WiFi.scanComplete()
 static char        s_sel_ssid[33] = {0};     // network chosen by the user
 static bool        s_sel_secured  = false;   // chosen network is encrypted
+static lv_obj_t*   s_pw_input    = nullptr;  // password textarea
+static lv_obj_t*   s_ssid_input  = nullptr;  // SSID textarea (only for "Outra")
 
 // ---------------------------------------------------------------------------
 // Screen-delete handler — cancels timer + frees scan results
@@ -44,7 +51,9 @@ static void screen_delete_cb(lv_event_t* /*e*/) {
 struct RowInfo { char ssid[33]; bool secured; };
 
 static void start_scan(void);
-static void open_password_step(const char* ssid, bool secured);  // filled in Task 4
+static void open_password_step(const char* ssid, bool secured);  // shows the password-entry screen
+static void try_connect(const char* ssid, const char* pass);     // filled in Task 5
+static lv_obj_t* build_header(lv_obj_t* scr);                   // shared header with back button
 
 static void network_row_cb(lv_event_t* e) {
     lv_obj_t* row  = (lv_obj_t*)lv_event_get_target(e);
@@ -110,7 +119,7 @@ static void build_list_from_scan(int n) {
     }
     // Trailing manual-entry row for hidden networks. Assumed secured; an
     // open-hidden toggle is a follow-up.
-    add_row("Outra (digitar)", true);
+    add_row(MANUAL_SSID_LABEL, true);
 }
 
 // ---------------------------------------------------------------------------
@@ -147,12 +156,87 @@ static void start_scan(void) {
 }
 
 // ---------------------------------------------------------------------------
-// Temporary stub — replaced in Task 4
+// Password-entry step
 // ---------------------------------------------------------------------------
+static void pw_ready_cb(lv_event_t* e) {
+    const char* ssid = s_ssid_input ? lv_textarea_get_text(s_ssid_input)
+                                     : s_sel_ssid;
+    const char* pass = s_pw_input ? lv_textarea_get_text(s_pw_input) : "";
+    // Null before any nav change (tamagotchi naming pattern) to avoid a
+    // dangling static after the screen is later popped.
+    s_ssid_input = nullptr;
+    s_pw_input = nullptr;
+    try_connect(ssid, pass);
+}
+
 static void open_password_step(const char* ssid, bool secured) {
-    strlcpy(s_sel_ssid, ssid, sizeof(s_sel_ssid));
+    if (!secured) {
+        // Open network: no password needed, connect immediately.
+        strlcpy(s_sel_ssid, ssid, sizeof(s_sel_ssid));
+        s_sel_secured = false;
+        s_ssid_input = nullptr;
+        s_pw_input = nullptr;
+        try_connect(ssid, "");
+        return;
+    }
+
+    bool manual = (strcmp(ssid, MANUAL_SSID_LABEL) == 0);
+    strlcpy(s_sel_ssid, manual ? "" : ssid, sizeof(s_sel_ssid));
     s_sel_secured = secured;
-    Serial.printf("[wifi_config] selected '%s' (secured=%d)\n", ssid, secured);
+    s_ssid_input = nullptr;
+    s_pw_input = nullptr;
+
+    lv_obj_t* scr = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(scr, theme_color_bg(), LV_PART_MAIN);
+    lv_obj_set_style_pad_all(scr, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+
+    build_header(scr);   // back button (back_event_cb -> nav_pop)
+
+    lv_obj_t* title = lv_label_create(scr);
+    lv_label_set_text(title, manual ? "rede + senha" : ssid);
+    lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
+    lv_obj_set_width(title, 220);
+    lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_color(title, theme_color_text(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_18, LV_PART_MAIN);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 48);
+
+    int y = 80;
+    if (manual) {
+        s_ssid_input = lv_textarea_create(scr);
+        lv_textarea_set_one_line(s_ssid_input, true);
+        lv_textarea_set_max_length(s_ssid_input, 32);
+        lv_textarea_set_placeholder_text(s_ssid_input, "nome da rede");
+        lv_obj_set_width(s_ssid_input, 220);
+        lv_obj_align(s_ssid_input, LV_ALIGN_TOP_MID, 0, y);
+        y += 44;
+    }
+
+    s_pw_input = lv_textarea_create(scr);
+    lv_textarea_set_one_line(s_pw_input, true);
+    lv_textarea_set_password_mode(s_pw_input, true);
+    lv_textarea_set_max_length(s_pw_input, 63);
+    lv_textarea_set_placeholder_text(s_pw_input, "senha");
+    lv_obj_set_width(s_pw_input, 220);
+    lv_obj_align(s_pw_input, LV_ALIGN_TOP_MID, 0, y);
+
+    lv_obj_t* kb = lv_keyboard_create(scr);
+    lv_obj_set_size(kb, 240, 150);
+    lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_keyboard_set_textarea(kb, manual ? s_ssid_input : s_pw_input);
+    lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_TEXT_LOWER);
+    lv_obj_add_event_cb(kb, pw_ready_cb, LV_EVENT_READY, NULL);
+
+    nav_push(scr, NAV_ANIM_SLIDE_LEFT);
+}
+
+// ---------------------------------------------------------------------------
+// Temporary stub — replaced in Task 5
+// ---------------------------------------------------------------------------
+static void try_connect(const char* ssid, const char* pass) {
+    Serial.printf("[wifi_config] would connect to '%s'\n", ssid);
+    (void)pass;
 }
 
 // ---------------------------------------------------------------------------
