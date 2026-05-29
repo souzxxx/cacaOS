@@ -122,6 +122,11 @@ void daily_card_show(void) {
     lv_obj_add_style(card, &theme_style_card, LV_PART_MAIN);
     lv_obj_set_style_pad_all(card, 14, LV_PART_MAIN);
     lv_obj_clear_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+    // Subtle pink->white vertical gradient (kawaii touch; keeps text readable).
+    lv_obj_set_style_bg_color(card, theme_color_text_light(), LV_PART_MAIN);   // light pink (top)
+    lv_obj_set_style_bg_grad_color(card, theme_color_card(), LV_PART_MAIN);    // white (bottom)
+    lv_obj_set_style_bg_grad_dir(card, LV_GRAD_DIR_VER, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(card, LV_OPA_COVER, LV_PART_MAIN);
 
     s_text_label = lv_label_create(card);
     lv_label_set_long_mode(s_text_label, LV_LABEL_LONG_WRAP);
