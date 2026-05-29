@@ -31,6 +31,11 @@ enum PixelIconId {
     PIX_STAT_HAPPY,   // heart — tamagotchi happiness bar
     PIX_STAT_ENERGY,  // lightning bolt — tamagotchi energy bar
     PIX_STAT_CLEAN,   // water drop — tamagotchi cleanliness bar
+    PIX_MOOD_HAPPY,   // smiley — mood tracker
+    PIX_MOOD_OK,      // gentle smile — mood tracker
+    PIX_MOOD_MEH,     // flat mouth — mood tracker
+    PIX_MOOD_SAD,     // frown — mood tracker
+    PIX_MOOD_ANGRY,   // angled brows + frown — mood tracker
     PIX_COUNT
 };
 
