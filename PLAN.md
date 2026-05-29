@@ -192,8 +192,8 @@ cacaos/
 - [x] SD montado em `'S:'` via LVGL FS_STDIO (path `/sd`)
 - [x] **Gallery:** lista `/photos/*.jpg`, navegação prev/next, render via `lv_image_set_src`
 - [x] **Daily card:** lê `messages.json` do SD, índice = day-of-year, botão "outra" mostra próxima, heart accent pulsante (scale 1.0→1.25x ping-pong)
-- [ ] Swipe horizontal na gallery (tem prev/next por enquanto)
-- [ ] Autoplay 5s/foto
+- [x] Swipe horizontal na gallery (gesture LEFT/RIGHT via lv_indev)
+- [x] Autoplay (long-press, 3s/foto)
 - [ ] Gradiente rosa no daily_card (uso cartão branco com texto centrado)
 
 **Critério de aceite:** 15 fotos preparadas em `sd_card/photos/` (01..15.jpg), 30 mensagens — *validar render com placa*.
@@ -225,15 +225,15 @@ Aqui o presente já é absurdo. As próximas fases dá pra empurrar depois.
 - [x] Contador de pomodoros completos por sessão
 - [x] Bichinho pixel central com sprite animado (12 frames/200ms), espelha o slug do tamagotchi
 - [x] RGB LED feedback: verde no focus, vermelho no break, dim no pause
-- [ ] Anel de progresso visual
-- [ ] Timers customizáveis (15/3, 25/5, 50/10) — atualmente fixo
+- [x] Anel de progresso visual (lv_arc ao redor do pet, preenche por fase)
+- [x] Timers customizáveis (presets 15/25/30/45/60 min, tap no card)
 
 ### Fase 7 — Mood Tracker (dia 15-16) — ✅ pronto
 - [x] Tela diária: 5 botões de humor (cores diferentes)
 - [x] Tap salva no NVS (`mood` namespace, key = "YYYYMMDD")
 - [x] Permite editar o humor do dia (basta tocar de novo)
 - [x] Histórico: heatmap 7x5 dos últimos 35 dias (hoje destacado com borda accent)
-- [ ] Sprite-art emojis em vez de texto `:D / :)` etc
+- [x] Sprite-art emojis (carinhas pixel-art sobre os botões coloridos)
 
 ### Bonus — LDR auto-dim — ✅ pronto
 - [x] `system/ldr.cpp` lê GPIO 34 a cada 500ms (EMA filtro)
