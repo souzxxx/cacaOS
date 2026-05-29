@@ -32,6 +32,12 @@ static bool        s_sel_secured  = false;   // chosen network is encrypted
 static lv_obj_t*   s_pw_input    = nullptr;  // password textarea
 static lv_obj_t*   s_ssid_input  = nullptr;  // SSID textarea (only for "Outra")
 
+// connect-step state
+static lv_obj_t*   s_connect_scr     = nullptr;
+static lv_obj_t*   s_connect_label   = nullptr;
+static lv_obj_t*   s_connect_spinner = nullptr;
+static lv_timer_t* s_apply_timer     = nullptr;
+
 // ---------------------------------------------------------------------------
 // Screen-delete handler — cancels timer + frees scan results
 // ---------------------------------------------------------------------------
@@ -159,13 +165,14 @@ static void start_scan(void) {
 // Password-entry step
 // ---------------------------------------------------------------------------
 static void pw_ready_cb(lv_event_t* e) {
+    // Read directly from the live textareas. These statics stay valid while the
+    // password screen is on the nav stack (it is not deleted until we navigate
+    // past it), and open_password_step resets them on every entry. Keeping them
+    // non-null here is what lets the "tentar de novo" retry flow re-read the
+    // password after a failed attempt.
     const char* ssid = s_ssid_input ? lv_textarea_get_text(s_ssid_input)
                                      : s_sel_ssid;
     const char* pass = s_pw_input ? lv_textarea_get_text(s_pw_input) : "";
-    // Null before any nav change (tamagotchi naming pattern) to avoid a
-    // dangling static after the screen is later popped.
-    s_ssid_input = nullptr;
-    s_pw_input = nullptr;
     try_connect(ssid, pass);
 }
 
@@ -232,11 +239,95 @@ static void open_password_step(const char* ssid, bool secured) {
 }
 
 // ---------------------------------------------------------------------------
-// Temporary stub — replaced in Task 5
+// Apply poll timer + connect-screen delete handler
+// ---------------------------------------------------------------------------
+static void connect_dismiss_cb(lv_timer_t* t) {
+    lv_timer_delete(t);
+    s_apply_timer = nullptr;
+    nav_pop(NAV_ANIM_NONE);   // connect -> password
+    nav_pop(NAV_ANIM_NONE);   // password -> network list
+}
+
+static void retry_btn_cb(lv_event_t* /*e*/) {
+    nav_pop(NAV_ANIM_SLIDE_RIGHT);   // back to the password screen to retry
+}
+
+static void apply_poll_cb(lv_timer_t* t) {
+    wifi_apply_status_t st = wifi_mgr_apply_status();
+    if (st == WIFI_APPLY_TESTING) return;
+
+    lv_timer_delete(t);
+    s_apply_timer = nullptr;
+    if (!s_connect_label) return;
+
+    if (s_connect_spinner) {
+        lv_obj_add_flag(s_connect_spinner, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if (st == WIFI_APPLY_OK) {
+        char buf[64];
+        snprintf(buf, sizeof(buf), LV_SYMBOL_OK " conectado!\n%s",
+                 WiFi.localIP().toString().c_str());
+        lv_label_set_text(s_connect_label, buf);
+        // Auto-return to the network list after a short confirmation.
+        s_apply_timer = lv_timer_create(connect_dismiss_cb, 1500, NULL);
+    } else {  // WIFI_APPLY_FAILED
+        lv_label_set_text(s_connect_label,
+                          LV_SYMBOL_CLOSE " falhou\nsenha errada?");
+        lv_obj_t* retry_btn = lv_button_create(s_connect_scr);
+        lv_obj_set_size(retry_btn, 160, 38);
+        lv_obj_align(retry_btn, LV_ALIGN_CENTER, 0, 80);
+        lv_obj_set_style_bg_color(retry_btn, theme_color_accent(), LV_PART_MAIN);
+        lv_obj_set_style_radius(retry_btn, THEME_RADIUS_BUTTON, LV_PART_MAIN);
+        lv_obj_add_event_cb(retry_btn, retry_btn_cb, LV_EVENT_CLICKED, NULL);
+        lv_obj_t* rl = lv_label_create(retry_btn);
+        lv_label_set_text(rl, "tentar de novo");
+        lv_obj_set_style_text_color(rl, theme_color_bg(), LV_PART_MAIN);
+        lv_obj_center(rl);
+    }
+}
+
+static void connect_scr_delete_cb(lv_event_t* /*e*/) {
+    if (s_apply_timer) {
+        lv_timer_delete(s_apply_timer);
+        s_apply_timer = nullptr;
+    }
+    s_connect_scr = nullptr;
+    s_connect_label = nullptr;
+    s_connect_spinner = nullptr;
+}
+
+// ---------------------------------------------------------------------------
+// Connect flow
 // ---------------------------------------------------------------------------
 static void try_connect(const char* ssid, const char* pass) {
-    Serial.printf("[wifi_config] would connect to '%s'\n", ssid);
-    (void)pass;
+    if (ssid[0] == '\0') return;  // nothing typed for a manual SSID
+    if (s_apply_timer) {          // cancel any stale attempt before starting
+        lv_timer_delete(s_apply_timer);
+        s_apply_timer = nullptr;
+    }
+
+    s_connect_scr = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(s_connect_scr, theme_color_bg(), LV_PART_MAIN);
+    lv_obj_set_style_pad_all(s_connect_scr, 0, LV_PART_MAIN);
+    lv_obj_clear_flag(s_connect_scr, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_event_cb(s_connect_scr, connect_scr_delete_cb, LV_EVENT_DELETE, NULL);
+
+    s_connect_spinner = lv_spinner_create(s_connect_scr);
+    lv_obj_set_size(s_connect_spinner, 48, 48);
+    lv_obj_align(s_connect_spinner, LV_ALIGN_CENTER, 0, -30);
+
+    s_connect_label = lv_label_create(s_connect_scr);
+    lv_label_set_text(s_connect_label, "conectando...");
+    lv_obj_set_style_text_align(s_connect_label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_color(s_connect_label, theme_color_text(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(s_connect_label, &lv_font_montserrat_18, LV_PART_MAIN);
+    lv_obj_align(s_connect_label, LV_ALIGN_CENTER, 0, 30);
+
+    nav_push(s_connect_scr, NAV_ANIM_FADE);
+
+    wifi_mgr_apply_credentials(ssid, pass);
+    s_apply_timer = lv_timer_create(apply_poll_cb, 200, NULL);
 }
 
 // ---------------------------------------------------------------------------
