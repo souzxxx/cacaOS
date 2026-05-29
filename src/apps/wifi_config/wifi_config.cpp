@@ -27,6 +27,7 @@ static constexpr char MANUAL_SSID_LABEL[] = "Outra (digitar)";
 static lv_obj_t*   s_list        = nullptr;  // scrollable network list
 static lv_obj_t*   s_status      = nullptr;  // "procurando…" / errors
 static lv_timer_t* s_scan_timer  = nullptr;  // polls WiFi.scanComplete()
+static lv_obj_t*   s_rescan_btn  = nullptr;  // "procurar de novo" button shown when scan finds nothing
 static char        s_sel_ssid[33] = {0};     // network chosen by the user
 static bool        s_sel_secured  = false;   // chosen network is encrypted
 static lv_obj_t*   s_pw_input    = nullptr;  // password textarea
@@ -37,6 +38,7 @@ static lv_obj_t*   s_connect_scr     = nullptr;
 static lv_obj_t*   s_connect_label   = nullptr;
 static lv_obj_t*   s_connect_spinner = nullptr;
 static lv_timer_t* s_apply_timer     = nullptr;
+static int         s_dismiss_pops    = 2;   // screens to pop on success: 2 (secured: connect→password→list) or 1 (open: connect→list)
 
 // ---------------------------------------------------------------------------
 // Screen-delete handler — cancels timer + frees scan results
@@ -47,8 +49,9 @@ static void screen_delete_cb(lv_event_t* /*e*/) {
         s_scan_timer = nullptr;
     }
     WiFi.scanDelete();
-    s_list   = nullptr;
-    s_status = nullptr;
+    s_list       = nullptr;
+    s_status     = nullptr;
+    s_rescan_btn = nullptr;
 }
 
 // ---------------------------------------------------------------------------
@@ -60,6 +63,10 @@ static void start_scan(void);
 static void open_password_step(const char* ssid, bool secured);  // shows the password-entry screen
 static void try_connect(const char* ssid, const char* pass);     // filled in Task 5
 static lv_obj_t* build_header(lv_obj_t* scr);                   // shared header with back button
+
+static void rescan_btn_cb(lv_event_t* /*e*/) {
+    start_scan();
+}
 
 static void network_row_cb(lv_event_t* e) {
     lv_obj_t* row  = (lv_obj_t*)lv_event_get_target(e);
@@ -139,6 +146,18 @@ static void scan_poll_cb(lv_timer_t* t) {
 
     if (n <= 0) {
         if (s_status) lv_label_set_text(s_status, "nenhuma rede encontrada");
+        if (s_list) {
+            s_rescan_btn = lv_button_create(s_list);
+            lv_obj_set_width(s_rescan_btn, lv_pct(100));
+            lv_obj_set_style_bg_color(s_rescan_btn, theme_color_accent(), LV_PART_MAIN);
+            lv_obj_set_style_radius(s_rescan_btn, 8, LV_PART_MAIN);
+            lv_obj_set_style_shadow_width(s_rescan_btn, 0, LV_PART_MAIN);
+            lv_obj_add_event_cb(s_rescan_btn, rescan_btn_cb, LV_EVENT_CLICKED, NULL);
+            lv_obj_t* l = lv_label_create(s_rescan_btn);
+            lv_label_set_text(l, LV_SYMBOL_REFRESH "  procurar de novo");
+            lv_obj_set_style_text_color(l, theme_color_bg(), LV_PART_MAIN);
+            lv_obj_center(l);
+        }
         return;
     }
     if (s_status) lv_obj_add_flag(s_status, LV_OBJ_FLAG_HIDDEN);
@@ -153,6 +172,7 @@ static void start_scan(void) {
     }
     if (s_list) {
         lv_obj_clean(s_list);   // clears rows (their row_free_cb frees RowInfo)
+        s_rescan_btn = nullptr; // was a child of s_list, just deleted by clean
     }
     WiFi.scanDelete();
     WiFi.scanNetworks(true /* async */);
@@ -173,6 +193,7 @@ static void pw_ready_cb(lv_event_t* e) {
     const char* ssid = s_ssid_input ? lv_textarea_get_text(s_ssid_input)
                                      : s_sel_ssid;
     const char* pass = s_pw_input ? lv_textarea_get_text(s_pw_input) : "";
+    s_dismiss_pops = 2;
     try_connect(ssid, pass);
 }
 
@@ -183,6 +204,7 @@ static void open_password_step(const char* ssid, bool secured) {
         s_sel_secured = false;
         s_ssid_input = nullptr;
         s_pw_input = nullptr;
+        s_dismiss_pops = 1;
         try_connect(ssid, "");
         return;
     }
@@ -244,8 +266,9 @@ static void open_password_step(const char* ssid, bool secured) {
 static void connect_dismiss_cb(lv_timer_t* t) {
     lv_timer_delete(t);
     s_apply_timer = nullptr;
-    nav_pop(NAV_ANIM_NONE);   // connect -> password
-    nav_pop(NAV_ANIM_NONE);   // password -> network list
+    for (int i = 0; i < s_dismiss_pops; ++i) {
+        nav_pop(NAV_ANIM_NONE);
+    }
 }
 
 static void retry_btn_cb(lv_event_t* /*e*/) {
