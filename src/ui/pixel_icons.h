@@ -26,7 +26,11 @@ enum PixelIconId {
     PIX_MOOD,
     PIX_PET,
     PIX_SETTINGS,
-    PIX_LOCK,        // padlock badge (used by the WiFi list for secured networks)
+    PIX_LOCK,         // padlock badge (used by the WiFi list for secured networks)
+    PIX_STAT_HUNGER,  // apple — tamagotchi hunger bar
+    PIX_STAT_HAPPY,   // heart — tamagotchi happiness bar
+    PIX_STAT_ENERGY,  // lightning bolt — tamagotchi energy bar
+    PIX_STAT_CLEAN,   // water drop — tamagotchi cleanliness bar
     PIX_COUNT
 };
 
