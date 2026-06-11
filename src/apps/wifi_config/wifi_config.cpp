@@ -31,6 +31,7 @@ static lv_obj_t*   s_status      = nullptr;  // "procurando…" / errors
 static lv_timer_t* s_scan_timer  = nullptr;  // polls WiFi.scanComplete()
 static lv_obj_t*   s_rescan_btn  = nullptr;  // "procurar de novo" button shown when scan finds nothing
 static uint8_t     s_scan_attempts = 0;      // scan_start retries (see scan_poll_cb)
+static bool        s_auto_rescanned = false; // one free full rescan per user action
 static char        s_sel_ssid[33] = {0};     // network chosen by the user
 static bool        s_sel_secured  = false;   // chosen network is encrypted
 static lv_obj_t*   s_pw_input    = nullptr;  // password textarea
@@ -69,6 +70,7 @@ static void try_connect(const char* ssid, const char* pass);     // filled in Ta
 static lv_obj_t* build_header(lv_obj_t* scr);                   // shared header with back button
 
 static void rescan_btn_cb(lv_event_t* /*e*/) {
+    s_auto_rescanned = false;
     start_scan();
 }
 
@@ -167,9 +169,20 @@ static void scan_poll_cb(lv_timer_t* t) {
         return;                            // keep the poll timer alive
     }
 
+    Serial.printf("[wifi_config] scan done: %d network(s)\n", n);
+
+    // The first scan right after aborting the boot-time connect attempt often
+    // comes back empty even after the radio cycle; rescan once automatically
+    // so the list fills without the user pressing "procurar de novo".
+    if (n <= 0 && !s_auto_rescanned) {
+        s_auto_rescanned = true;
+        Serial.println(F("[wifi_config] empty scan, auto-rescanning once"));
+        start_scan();   // keeps this poll timer alive
+        return;
+    }
+
     lv_timer_delete(t);
     s_scan_timer = nullptr;
-    Serial.printf("[wifi_config] scan done: %d network(s)\n", n);
 
     if (n <= 0) {
         if (s_status) {
@@ -451,6 +464,7 @@ void wifi_config_show(void) {
     lv_obj_set_style_bg_opa(s_list, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(s_list, 0, LV_PART_MAIN);
 
+    s_auto_rescanned = false;
     start_scan();
 
     nav_push(scr, NAV_ANIM_SLIDE_LEFT);
