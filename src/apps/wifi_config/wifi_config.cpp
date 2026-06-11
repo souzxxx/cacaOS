@@ -20,7 +20,8 @@
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-static constexpr char MANUAL_SSID_LABEL[] = "Outra (digitar)";
+static constexpr char    MANUAL_SSID_LABEL[] = "Outra (digitar)";
+static constexpr uint8_t SCAN_MAX_ATTEMPTS   = 4;
 
 // ---------------------------------------------------------------------------
 // Module state
@@ -29,6 +30,7 @@ static lv_obj_t*   s_list        = nullptr;  // scrollable network list
 static lv_obj_t*   s_status      = nullptr;  // "procurando…" / errors
 static lv_timer_t* s_scan_timer  = nullptr;  // polls WiFi.scanComplete()
 static lv_obj_t*   s_rescan_btn  = nullptr;  // "procurar de novo" button shown when scan finds nothing
+static uint8_t     s_scan_attempts = 0;      // scan_start retries (see scan_poll_cb)
 static char        s_sel_ssid[33] = {0};     // network chosen by the user
 static bool        s_sel_secured  = false;   // chosen network is encrypted
 static lv_obj_t*   s_pw_input    = nullptr;  // password textarea
@@ -53,6 +55,7 @@ static void screen_delete_cb(lv_event_t* /*e*/) {
     s_list       = nullptr;
     s_status     = nullptr;
     s_rescan_btn = nullptr;
+    wifi_mgr_resume();   // restart the connect attempt paused for scanning
 }
 
 // ---------------------------------------------------------------------------
@@ -152,11 +155,27 @@ static void build_list_from_scan(int n) {
 static void scan_poll_cb(lv_timer_t* t) {
     int n = WiFi.scanComplete();
     if (n == WIFI_SCAN_RUNNING) return;   // still scanning
+
+    // scan_start can still hit ESP_ERR_WIFI_STATE for a beat right after
+    // wifi_mgr_pause() aborts the in-flight connect; retry on the next ticks.
+    if (n == WIFI_SCAN_FAILED && s_scan_attempts < SCAN_MAX_ATTEMPTS) {
+        ++s_scan_attempts;
+        Serial.printf("[wifi_config] scan start failed, retry %u/%u\n",
+                      s_scan_attempts, SCAN_MAX_ATTEMPTS);
+        WiFi.scanDelete();
+        WiFi.scanNetworks(true /* async */);
+        return;                            // keep the poll timer alive
+    }
+
     lv_timer_delete(t);
     s_scan_timer = nullptr;
+    Serial.printf("[wifi_config] scan done: %d network(s)\n", n);
 
     if (n <= 0) {
-        if (s_status) lv_label_set_text(s_status, "nenhuma rede encontrada");
+        if (s_status) {
+            lv_label_set_text(s_status, n == 0 ? "nenhuma rede encontrada"
+                                               : "falha ao procurar redes");
+        }
         if (s_list) {
             s_rescan_btn = lv_button_create(s_list);
             lv_obj_set_width(s_rescan_btn, lv_pct(100));
@@ -185,6 +204,8 @@ static void start_scan(void) {
         lv_obj_clean(s_list);   // clears rows (their row_free_cb frees RowInfo)
         s_rescan_btn = nullptr; // was a child of s_list, just deleted by clean
     }
+    s_scan_attempts = 0;
+    wifi_mgr_pause();   // free the radio: scan_start fails while connecting
     WiFi.scanDelete();
     WiFi.scanNetworks(true /* async */);
     if (!s_scan_timer) {

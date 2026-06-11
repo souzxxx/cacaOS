@@ -23,3 +23,5 @@ void wifi_mgr_loop(void) {
 bool wifi_mgr_is_connected(void) { return true; }
 bool wifi_mgr_time_is_synced(void) { return s_time_synced; }
 void wifi_mgr_disable(void) {}
+void wifi_mgr_pause(void) {}
+void wifi_mgr_resume(void) {}

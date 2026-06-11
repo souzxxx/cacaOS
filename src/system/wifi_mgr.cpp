@@ -119,6 +119,23 @@ void wifi_mgr_disable(void) {
     s_state = WIFI_STATE_IDLE;
 }
 
+void wifi_mgr_pause(void) {
+    if (s_state == WIFI_STATE_CONNECTED && WiFi.status() == WL_CONNECTED) {
+        return;   // scanning while associated works; keep the connection
+    }
+    Serial.println(F("[wifi] paused (scan)"));
+    WiFi.setAutoReconnect(false);   // keep the driver from restarting the attempt
+    WiFi.disconnect();
+    s_state = WIFI_STATE_IDLE;
+}
+
+void wifi_mgr_resume(void) {
+    if (s_state != WIFI_STATE_IDLE) return;
+    Serial.println(F("[wifi] resumed"));
+    WiFi.setAutoReconnect(true);
+    start_connection();
+}
+
 void wifi_mgr_apply_credentials(const char* ssid, const char* pass) {
     if (s_apply_pending) return;          // a test is already in flight
     if (!ssid || !ssid[0]) return;        // reject missing/empty SSID
@@ -127,6 +144,7 @@ void wifi_mgr_apply_credentials(const char* ssid, const char* pass) {
     s_apply_pending = true;
     s_apply_status  = WIFI_APPLY_TESTING;
     Serial.printf("[wifi] testing new credentials for '%s'\n", s_pending_ssid);
+    WiFi.setAutoReconnect(true);          // may be off after wifi_mgr_pause()
     WiFi.disconnect();
     WiFi.begin(s_pending_ssid, s_pending_pass);
     s_connect_start_ms = millis();

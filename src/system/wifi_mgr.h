@@ -33,6 +33,22 @@ bool wifi_mgr_time_is_synced(void);
 void wifi_mgr_disable(void);
 
 /**
+ * Free the radio for a scan: abort any in-flight connection attempt and stop
+ * auto-reconnect. esp_wifi_scan_start() fails with ESP_ERR_WIFI_STATE while
+ * the STA is mid-connect, so a scan started during the boot/retry connect
+ * loop never runs. No-op when already connected (scanning while associated
+ * works). Pair with wifi_mgr_resume().
+ */
+void wifi_mgr_pause(void);
+
+/**
+ * Undo wifi_mgr_pause(): restart the connection attempt with the stored
+ * credentials. No-op unless paused (an active connection or a credential
+ * test via wifi_mgr_apply_credentials is left alone).
+ */
+void wifi_mgr_resume(void);
+
+/**
  * Status of a UI-initiated credential change (see wifi_mgr_apply_credentials).
  */
 typedef enum {
