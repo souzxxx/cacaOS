@@ -125,7 +125,12 @@ void wifi_mgr_pause(void) {
     }
     Serial.println(F("[wifi] paused (scan)"));
     WiFi.setAutoReconnect(false);   // keep the driver from restarting the attempt
-    WiFi.disconnect();
+    // disconnect() alone leaves the driver's connect state machine stuck after
+    // aborted attempts: scans then start but time out / report 0 APs. A full
+    // radio cycle (esp_wifi_stop + start) clears it.
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_OFF);
+    WiFi.mode(WIFI_STA);
     s_state = WIFI_STATE_IDLE;
 }
 
