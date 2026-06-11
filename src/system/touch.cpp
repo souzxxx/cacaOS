@@ -2,6 +2,15 @@
  * @file touch.cpp
  * @brief XPT2046 resistive touch driver + LVGL pointer input + 4-point calibration.
  *
+ * The XPT2046 is read via bit-banged SPI: the SD card owns the VSPI
+ * peripheral (pins 18/19/23) and the display owns HSPI via TFT_eSPI, so
+ * there is no hardware SPI controller left for the touch pins (25/32/39).
+ * A hardware SPIClass(VSPI) here would remap VSPI away from the SD pins
+ * and kill the card mid-session. The chip maxes out at 2.5MHz anyway, so
+ * software SPI costs nothing. The read sequence, filtering (besttwoavg)
+ * and rotation-0 transform mirror XPT2046_Touchscreen exactly, keeping
+ * previously saved calibrations valid.
+ *
  * Calibration model: simple linear scale + offset per axis.
  *   screen_x = (raw_x - off_x) * scale_x
  *   screen_y = (raw_y - off_y) * scale_y
@@ -15,8 +24,6 @@
 #include "touch.h"
 
 #include <Arduino.h>
-#include <SPI.h>
-#include <XPT2046_Touchscreen.h>
 #include <lvgl.h>
 #include <Preferences.h>
 
@@ -27,9 +34,95 @@ static constexpr int TOUCH_CLK  = 25;
 static constexpr int TOUCH_CS   = 33;
 static constexpr int TOUCH_IRQ  = 36;
 
-// Use dedicated VSPI bus instance for touch (display uses HSPI implicitly via TFT_eSPI)
-static SPIClass s_touch_spi = SPIClass(VSPI);
-static XPT2046_Touchscreen s_touch(TOUCH_CS, TOUCH_IRQ);
+// ----- Bit-banged XPT2046 (values match XPT2046_Touchscreen) -----
+static constexpr int16_t Z_THRESHOLD    = 400;
+static constexpr uint32_t MSEC_THRESHOLD = 3;
+
+struct TS_Point { int16_t x; int16_t y; int16_t z; };
+
+static int16_t  s_xraw = 0, s_yraw = 0, s_zraw = 0;
+static uint32_t s_msraw = 0;
+
+static uint8_t xpt_xfer(uint8_t out) {
+    uint8_t in = 0;
+    for (int i = 7; i >= 0; --i) {
+        digitalWrite(TOUCH_MOSI, (out >> i) & 1);
+        digitalWrite(TOUCH_CLK, HIGH);   // mode 0: sample MISO on rising edge
+        in = (uint8_t)((in << 1) | digitalRead(TOUCH_MISO));
+        digitalWrite(TOUCH_CLK, LOW);
+    }
+    return in;
+}
+
+static uint16_t xpt_xfer16(uint16_t out) {
+    uint16_t hi = xpt_xfer((uint8_t)(out >> 8));
+    uint16_t lo = xpt_xfer((uint8_t)(out & 0xFF));
+    return (uint16_t)((hi << 8) | lo);
+}
+
+// Average the pair with the least distance between three measurements
+// (verbatim from XPT2046_Touchscreen).
+static int16_t besttwoavg(int16_t x, int16_t y, int16_t z) {
+    int16_t da = (x > y) ? (x - y) : (y - x);
+    int16_t db = (x > z) ? (x - z) : (z - x);
+    int16_t dc = (z > y) ? (z - y) : (y - z);
+    if (da <= db && da <= dc) return (x + y) >> 1;
+    if (db <= da && db <= dc) return (x + z) >> 1;
+    return (y + z) >> 1;
+}
+
+static void xpt_update(void) {
+    // PENIRQ is high when nothing presses the panel — skip the SPI traffic.
+    if (digitalRead(TOUCH_IRQ) == HIGH) {
+        s_zraw = 0;
+        return;
+    }
+    uint32_t now = millis();
+    if (now - s_msraw < MSEC_THRESHOLD) return;   // keep last good read
+
+    int16_t data[6];
+    digitalWrite(TOUCH_CS, LOW);
+    xpt_xfer(0xB1 /* Z1 */);
+    int16_t z1 = (int16_t)(xpt_xfer16(0xC1 /* Z2 */) >> 3);
+    int z = z1 + 4095;
+    int16_t z2 = (int16_t)(xpt_xfer16(0x91 /* X */) >> 3);
+    z -= z2;
+    if (z >= Z_THRESHOLD) {
+        xpt_xfer16(0x91 /* X */);   // dummy X measure, 1st is always noisy
+        data[0] = (int16_t)(xpt_xfer16(0xD1 /* Y */) >> 3);
+        data[1] = (int16_t)(xpt_xfer16(0x91 /* X */) >> 3);
+        data[2] = (int16_t)(xpt_xfer16(0xD1 /* Y */) >> 3);
+        data[3] = (int16_t)(xpt_xfer16(0x91 /* X */) >> 3);
+    } else {
+        data[0] = data[1] = data[2] = data[3] = 0;
+    }
+    data[4] = (int16_t)(xpt_xfer16(0xD0 /* Y, power down */) >> 3);
+    data[5] = (int16_t)(xpt_xfer16(0) >> 3);
+    digitalWrite(TOUCH_CS, HIGH);
+
+    if (z < 0) z = 0;
+    if (z < Z_THRESHOLD) {
+        s_zraw = 0;
+        return;
+    }
+    s_zraw = (int16_t)z;
+    int16_t x = besttwoavg(data[0], data[2], data[4]);
+    int16_t y = besttwoavg(data[1], data[3], data[5]);
+    s_msraw = now;
+    // Rotation 0 transform (matches XPT2046_Touchscreen::update)
+    s_xraw = (int16_t)(4095 - y);
+    s_yraw = x;
+}
+
+static bool xpt_touched(void) {
+    xpt_update();
+    return s_zraw >= Z_THRESHOLD;
+}
+
+static TS_Point xpt_get_point(void) {
+    xpt_update();
+    return TS_Point{s_xraw, s_yraw, s_zraw};
+}
 
 // ----- Calibration state (in-RAM, mirrored from NVS) -----
 struct Calibration {
@@ -49,8 +142,8 @@ static void save_calibration_to_nvs(void);
 
 // ----------------------------------------------------------------
 static void lvgl_touch_read_cb(lv_indev_t* /*indev*/, lv_indev_data_t* data) {
-    if (s_touch.tirqTouched() && s_touch.touched()) {
-        TS_Point p = s_touch.getPoint();
+    if (xpt_touched()) {
+        TS_Point p = xpt_get_point();
 
         // Apply calibration
         int32_t x = static_cast<int32_t>((p.x - s_cal.off_x) * s_cal.scale_x);
@@ -70,9 +163,13 @@ static void lvgl_touch_read_cb(lv_indev_t* /*indev*/, lv_indev_data_t* data) {
 
 // ----------------------------------------------------------------
 void touch_init(void) {
-    s_touch_spi.begin(TOUCH_CLK, TOUCH_MISO, TOUCH_MOSI, TOUCH_CS);
-    s_touch.begin(s_touch_spi);
-    s_touch.setRotation(0);
+    pinMode(TOUCH_CS, OUTPUT);
+    digitalWrite(TOUCH_CS, HIGH);
+    pinMode(TOUCH_CLK, OUTPUT);
+    digitalWrite(TOUCH_CLK, LOW);
+    pinMode(TOUCH_MOSI, OUTPUT);
+    pinMode(TOUCH_MISO, INPUT);
+    pinMode(TOUCH_IRQ, INPUT);   // GPIO 36 is input-only, no pull resistors
 
     load_calibration_from_nvs();
 
@@ -141,11 +238,11 @@ static bool wait_for_touch(int16_t timeout_ms, TS_Point* out) {
     uint32_t deadline = millis() + timeout_ms;
     // Wait for press
     while (millis() < deadline) {
-        if (s_touch.tirqTouched() && s_touch.touched()) {
-            *out = s_touch.getPoint();
+        if (xpt_touched()) {
+            *out = xpt_get_point();
             // Wait for release
             uint32_t release_dl = millis() + 2000;
-            while (s_touch.touched() && millis() < release_dl) delay(10);
+            while (xpt_touched() && millis() < release_dl) delay(10);
             return true;
         }
         delay(10);

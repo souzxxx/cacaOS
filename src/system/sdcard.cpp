@@ -20,8 +20,9 @@ static constexpr int SD_SCLK  = 18;
 static bool s_mounted = false;
 
 bool sdcard_init(void) {
-    // Use the default SPI bus reconfigured for SD pins.
-    // Important: TFT_eSPI uses its own SPI instance (HSPI), so no conflict.
+    // The SD card owns the VSPI peripheral (the global `SPI`). The display
+    // is on HSPI via TFT_eSPI and the touch is bit-banged (see touch.cpp),
+    // so nothing else may remap VSPI.
     SPI.begin(SD_SCLK, SD_MISO, SD_MOSI, SD_CS);
 
     if (!SD.begin(SD_CS, SPI, 25000000)) {
