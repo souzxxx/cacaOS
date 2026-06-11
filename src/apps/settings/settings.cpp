@@ -15,6 +15,7 @@
 #include "../../system/storage.h"
 #include "../../system/touch.h"
 #include "../wifi_config/wifi_config.h"
+#include "../file_drop/file_drop.h"
 
 #define CACAOS_VERSION "v0.1"
 
@@ -127,6 +128,10 @@ static void reset_touch_btn_cb(lv_event_t* /*e*/) {
 
 static void wifi_btn_cb(lv_event_t* /*e*/) {
     wifi_config_show();
+}
+
+static void file_drop_btn_cb(lv_event_t* /*e*/) {
+    file_drop_show();
 }
 
 void settings_show(void) {
@@ -265,6 +270,22 @@ void settings_show(void) {
     lv_obj_set_style_text_color(rt_lbl, theme_color_accent(), LV_PART_MAIN);
     lv_obj_set_style_text_font(rt_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
     lv_obj_center(rt_lbl);
+
+    // --- Receive files over WiFi ---
+    lv_obj_t* file_drop_btn = lv_button_create(content);
+    lv_obj_set_size(file_drop_btn, 220, 40);
+    lv_obj_align(file_drop_btn, LV_ALIGN_TOP_MID, 0, 284);
+    lv_obj_set_style_bg_color(file_drop_btn, theme_color_card(), LV_PART_MAIN);
+    lv_obj_set_style_radius(file_drop_btn, THEME_RADIUS_BUTTON, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(file_drop_btn, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(file_drop_btn, 1, LV_PART_MAIN);
+    lv_obj_set_style_border_color(file_drop_btn, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_add_event_cb(file_drop_btn, file_drop_btn_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t* fd_lbl = lv_label_create(file_drop_btn);
+    lv_label_set_text(fd_lbl, LV_SYMBOL_DOWNLOAD "  receber arquivos");
+    lv_obj_set_style_text_color(fd_lbl, theme_color_accent(), LV_PART_MAIN);
+    lv_obj_set_style_text_font(fd_lbl, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_center(fd_lbl);
 
     nav_push(scr, NAV_ANIM_SLIDE_LEFT);
 }
